@@ -35,6 +35,10 @@ type LoanUsersDao interface {
 	CreateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanUsers) (uint64, error)
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanUsers) error
+
+	GetByUsername(ctx context.Context, username string) (*model.LoanUsers, error)
+	GetRoleCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
+	GetPermCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
 }
 
 type loanUsersDao struct {
@@ -53,6 +57,47 @@ func NewLoanUsersDao(db *gorm.DB, xCache cache.LoanUsersCache) LoanUsersDao {
 		cache: xCache,
 		sfg:   new(singleflight.Group),
 	}
+}
+func (d *loanUsersDao) GetRoleCodesByUserID(ctx context.Context, userID uint64) ([]string, error) {
+	var roleCodes []string
+
+	err := d.db.WithContext(ctx).
+		Table("loan_user_roles ur").
+		Select("r.code").
+		Joins("JOIN loan_roles r ON r.id = ur.role_id AND r.deleted_at IS NULL").
+		Where("ur.user_id = ? AND ur.deleted_at IS NULL", userID).
+		Where("r.status = 1").
+		Order("r.code ASC").
+		Scan(&roleCodes).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if roleCodes == nil {
+		roleCodes = []string{}
+	}
+	return roleCodes, nil
+}
+func (d *loanUsersDao) GetPermCodesByUserID(ctx context.Context, userID uint64) ([]string, error) {
+	var permCodes []string
+
+	err := d.db.WithContext(ctx).
+		Table("loan_user_roles ur").
+		Select("DISTINCT p.code").
+		Joins("JOIN loan_roles r ON r.id = ur.role_id AND r.deleted_at IS NULL AND r.status = 1").
+		Joins("JOIN loan_role_permissions rp ON rp.role_id = ur.role_id AND rp.deleted_at IS NULL").
+		Joins("JOIN loan_permissions p ON p.id = rp.permission_id AND p.deleted_at IS NULL").
+		Where("ur.user_id = ? AND ur.deleted_at IS NULL", userID).
+		Order("p.code ASC").
+		Scan(&permCodes).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if permCodes == nil {
+		permCodes = []string{}
+	}
+	return permCodes, nil
 }
 
 func (d *loanUsersDao) deleteCache(ctx context.Context, id uint64) error {
@@ -321,6 +366,23 @@ func (d *loanUsersDao) GetByLastID(ctx context.Context, lastID uint64, limit int
 		return nil, err
 	}
 	return records, nil
+}
+
+func (d *loanUsersDao) GetByUsername(ctx context.Context, username string) (*model.LoanUsers, error) {
+	record := &model.LoanUsers{}
+
+	err := d.db.WithContext(ctx).
+		Where("username = ? AND deleted_at IS NULL", username).
+		First(record).Error
+
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return record, nil
 }
 
 // CreateByTx create a record in the database using the provided transaction

@@ -2,6 +2,7 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 
 	"loan/internal/handler"
 )
@@ -13,7 +14,7 @@ func init() {
 }
 
 func loanUsersRouter(group *gin.RouterGroup, h handler.LoanUsersHandler) {
-	g := group.Group("/loanUsers")
+	g := group.Group("/user")
 
 	// JWT authentication reference: https://go-sponge.com/component/transport/gin.html#jwt-authorization-middleware
 
@@ -23,6 +24,9 @@ func loanUsersRouter(group *gin.RouterGroup, h handler.LoanUsersHandler) {
 	// If jwt authentication is not required for all routes, authentication middleware can be added
 	// separately for only certain routes. In this case, g.Use(middleware.Auth()) above should not be used.
 
+	g.POST("/register", h.Register)
+	g.POST("/login", h.Login)
+	g.GET("/me", middleware.Auth(), h.Me)
 	g.POST("/", h.Create)          // [post] /api/v1/loanUsers
 	g.DELETE("/:id", h.DeleteByID) // [delete] /api/v1/loanUsers/:id
 	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanUsers/:id

@@ -7,7 +7,7 @@ import (
 // loanUserRoles business-level http error codes.
 // the loanUserRolesNO value range is 1~999, if the same error code is used, it will cause panic.
 var (
-	loanUserRolesNO = 100
+	loanUserRolesNO       = 100
 	loanUserRolesName     = "loanUserRoles"
 	loanUserRolesBaseCode = errcode.HCode(loanUserRolesNO)
 
@@ -21,6 +21,9 @@ var (
 	ErrGetByConditionLoanUserRoles = errcode.NewError(loanUserRolesBaseCode+7, "failed to get "+loanUserRolesName+" details by conditions")
 	ErrListByIDsLoanUserRoles      = errcode.NewError(loanUserRolesBaseCode+8, "failed to list by batch ids "+loanUserRolesName)
 	ErrListByLastIDLoanUserRoles   = errcode.NewError(loanUserRolesBaseCode+9, "failed to list by last id "+loanUserRolesName)
-
+	ErrHashPassword                = errcode.NewError(loanUserRolesBaseCode+10, "failed to hash password")
+	UsernameAlreadyExists          = errcode.NewError(loanUserRolesBaseCode+11, "username already exists")
+	UsernameOrPasswordIncorrect    = errcode.NewError(loanUserRolesBaseCode+12, "incorrect password")
+	UserDisabled                   = errcode.NewError(loanUserRolesBaseCode+13, "user is disabled")
 	// error codes are globally unique, adding 1 to the previous error code
 )

@@ -1,10 +1,18 @@
 package handler
 
 import (
+	"encoding/base64"
 	"errors"
 	"math"
+	"math/rand"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-dev-frame/sponge/pkg/jwt"
+	"github.com/go-sql-driver/mysql"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/go-dev-frame/sponge/pkg/copier"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
@@ -24,6 +32,9 @@ var _ LoanUsersHandler = (*loanUsersHandler)(nil)
 
 // LoanUsersHandler defining the handler interface
 type LoanUsersHandler interface {
+	Register(*gin.Context)
+	Login(*gin.Context)
+	Me(*gin.Context)
 	Create(c *gin.Context)
 	DeleteByID(c *gin.Context)
 	UpdateByID(c *gin.Context)
@@ -48,6 +59,201 @@ func NewLoanUsersHandler() LoanUsersHandler {
 			cache.NewLoanUsersCache(database.GetCacheType()),
 		),
 	}
+}
+
+func (h *loanUsersHandler) Register(c *gin.Context) {
+	form := &types.RegisterRequest{}
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	username := strings.TrimSpace(form.Username)
+	password := form.Password
+
+	if username == "" || len(username) < 3 || len(username) > 64 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+	// bcrypt 只处理前72字节，超过会被截断 -> 直接拒绝
+	if len(password) < 8 || len(password) > 72 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	username = strings.ToLower(username)
+
+	// hash 密码
+	pwHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		logger.Error("GenerateFromPassword error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.ErrHashPassword)
+		return
+	}
+
+	loanUsers := &model.LoanUsers{}
+	// 如果你希望 RegisterRequest 也能 copier.Copy（比如还有别的字段），可以 copy
+	// 但 password 绝对不要 copy 进 model
+	_ = copier.Copy(loanUsers, form) // 即使失败也不影响核心字段，我们下面手动赋值
+	loanUsers.Username = username
+	loanUsers.PasswordHash = string(pwHash)
+
+	// 默认值（你可以按业务调整）
+	loanUsers.DepartmentID = 1 // 没有选择部门时给默认部门；以后可改成从 form 传
+	loanUsers.MfaEnabled = 0
+	loanUsers.MfaRequired = 0
+	loanUsers.Status = 1
+
+	now := time.Now()
+	loanUsers.CreatedAt = now
+	loanUsers.UpdatedAt = now
+
+	ctx := middleware.WrapCtx(c)
+
+	// share_code 生成 + 处理唯一冲突重试
+	for i := 0; i < 5; i++ {
+		loanUsers.ShareCode = genShareCode(12)
+
+		err = h.iDao.Create(ctx, loanUsers)
+		if err == nil {
+			response.Success(c, gin.H{
+				"id":         loanUsers.ID,
+				"username":   loanUsers.Username,
+				"share_code": loanUsers.ShareCode,
+			})
+			return
+		}
+
+		// 唯一冲突（MySQL 1062）
+		if isDuplicateKeyErr(err) {
+			// 如果是用户名冲突：直接返回“用户名已存在”
+			if isDuplicateUsernameErr(err) {
+				response.Error(c, ecode.UsernameAlreadyExists) // 你需要补这个 ecode
+				return
+			}
+			// 否则大概率是 share_code 冲突：重试生成
+			continue
+		}
+
+		logger.Error("Register Create error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	// share_code 连续冲突基本不可能，按内部错误处理
+	response.Output(c, ecode.InternalServerError.ToHTTPCode())
+}
+
+func (h *loanUsersHandler) Login(c *gin.Context) {
+	form := &types.LoginRequest{}
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	username := strings.ToLower(strings.TrimSpace(form.Username))
+	password := form.Password
+
+	if username == "" || password == "" {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	ctx := middleware.WrapCtx(c)
+
+	// 1) 查用户
+	user, err := h.iDao.GetByUsername(ctx, username)
+	if err != nil {
+		logger.Error("GetByUsername error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+	if user == nil || user.ID == 0 {
+		// 不要提示“用户名不存在”，统一返回账号密码错误
+		response.Error(c, ecode.UsernameOrPasswordIncorrect)
+		return
+	}
+
+	// 2) 状态检查
+	if user.Status != 1 {
+		response.Error(c, ecode.UserDisabled) // 你可以自己定义这个 ecode
+		return
+	}
+
+	// 3) 校验密码
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
+		response.Error(c, ecode.UsernameOrPasswordIncorrect)
+		return
+	}
+
+	// 4) 生成 token（你封装的函数）
+	token, err := generateAccessToken(strconv.FormatInt(int64(user.ID), 10))
+	if err != nil {
+		logger.Error("GenerateAccessToken error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	// 5) 返回
+	response.Success(c, gin.H{
+		"token": token,
+		"user": gin.H{
+			"id":            user.ID,
+			"username":      user.Username,
+			"department_id": user.DepartmentID,
+			"mfa_enabled":   user.MfaEnabled,
+		},
+	})
+}
+
+func (h *loanUsersHandler) Me(c *gin.Context) {
+	uid, ok := getUIDFromClaims(c)
+	if !ok || uid == 0 {
+		response.Out(c, ecode.Unauthorized)
+		return
+	}
+
+	ctx := middleware.WrapCtx(c)
+
+	user, err := h.iDao.GetByID(ctx, uid) // 你实现：SELECT * FROM loan_users WHERE id=? AND deleted_at IS NULL
+	if err != nil {
+		logger.Error("GetByID error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+	if user == nil || user.ID == 0 || user.Status != 1 {
+		response.Out(c, ecode.Unauthorized)
+		return
+	}
+
+	roles, err := h.iDao.GetRoleCodesByUserID(ctx, uid) // 返回 []string
+	if err != nil {
+		logger.Error("GetRoleCodesByUserID error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	perms, err := h.iDao.GetPermCodesByUserID(ctx, uid) // 返回 []string
+	if err != nil {
+		logger.Error("GetPermCodesByUserID error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	response.Success(c, gin.H{
+		"user": gin.H{
+			"id":            user.ID,
+			"username":      user.Username,
+			"department_id": user.DepartmentID,
+			"mfa_enabled":   user.MfaEnabled,
+		},
+		"roles": roles,
+		"perms": perms,
+	})
 }
 
 // Create a new loanUsers
@@ -440,4 +646,54 @@ func convertLoanUserss(fromValues []*model.LoanUsers) ([]*types.LoanUsersObjDeta
 	}
 
 	return toValues, nil
+}
+
+func genShareCode(n int) string {
+	b := make([]byte, n)
+	_, _ = rand.Read(b)
+	s := base64.RawURLEncoding.EncodeToString(b)
+	if len(s) >= n {
+		return s[:n]
+	}
+	return s
+}
+
+func isDuplicateKeyErr(err error) bool {
+	var me *mysql.MySQLError
+	if errors.As(err, &me) {
+		return me.Number == 1062
+	}
+	return false
+}
+
+func isDuplicateUsernameErr(err error) bool {
+	var me *mysql.MySQLError
+	if errors.As(err, &me) && me.Number == 1062 {
+		// 你的唯一索引名是 `username`
+		return strings.Contains(me.Message, "for key 'username'") ||
+			strings.Contains(me.Message, "for key 'loan_users.username'")
+	}
+	return false
+}
+func generateAccessToken(uid string) (string, error) {
+	_, token, err := jwt.GenerateToken(uid)
+	return token, err
+}
+
+func getUIDFromClaims(c *gin.Context) (uint64, bool) {
+	v, ok := c.Get("claims")
+	if !ok || v == nil {
+		return 0, false
+	}
+	claims, ok := v.(*jwt.Claims)
+	if !ok || claims == nil {
+		return 0, false
+	}
+
+	uidStr := claims.UID
+	uid, err := strconv.ParseUint(uidStr, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return uid, true
 }
