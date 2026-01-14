@@ -67,6 +67,12 @@ type CreateLoanDisbursementsReply struct {
 	} `json:"data"` // return data
 }
 
+type LoanDisbursementDetailReply struct {
+	Disbursement LoanDisbursementsObjDetail `json:"disbursement"`
+	Baseinfo     LoanBaseinfoObjDetail      `json:"baseinfo"`
+	Audits       LoanAuditsObjDetail        `json:"audits"`
+}
+
 // UpdateLoanDisbursementsByIDReply only for api docs
 type UpdateLoanDisbursementsByIDReply struct {
 	Code int      `json:"code"` // return code

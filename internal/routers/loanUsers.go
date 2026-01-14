@@ -27,6 +27,7 @@ func loanUsersRouter(group *gin.RouterGroup, h handler.LoanUsersHandler) {
 	g.POST("/register", h.Register)
 	g.POST("/login", h.Login)
 	g.GET("/me", middleware.Auth(), h.Me)
+	g.GET("/refer", h.Refer)
 	g.POST("/", h.Create)          // [post] /api/v1/loanUsers
 	g.DELETE("/:id", h.DeleteByID) // [delete] /api/v1/loanUsers/:id
 	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanUsers/:id

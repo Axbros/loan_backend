@@ -180,6 +180,7 @@ func (h *loanBaseinfoHandler) GetByID(c *gin.Context) {
 	}
 
 	ctx := middleware.WrapCtx(c)
+
 	loanBaseinfo, err := h.iDao.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, database.ErrRecordNotFound) {
@@ -193,12 +194,24 @@ func (h *loanBaseinfoHandler) GetByID(c *gin.Context) {
 	}
 
 	data := &types.LoanBaseinfoObjDetail{}
-	err = copier.Copy(data, loanBaseinfo)
-	if err != nil {
+	if err := copier.Copy(data, loanBaseinfo); err != nil {
 		response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
 		return
 	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
+
+	// ✅ 查 files（按 type 分组）
+	files, err := h.iDao.GetFilesMapByBaseinfoID(ctx, id)
+	if err != nil {
+		logger.Error("GetFilesMapByBaseinfoID error", logger.Err(err), logger.Any("id", id), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	// ✅ 保证返回的是 {} 而不是 null
+	if files == nil {
+		files = map[string][]string{}
+	}
+	data.Files = files
 
 	response.Success(c, gin.H{"loanBaseinfo": data})
 }
@@ -237,8 +250,8 @@ func (h *loanBaseinfoHandler) List(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"loanBaseinfos": data,
-		"total":         total,
+		"records": data,
+		"total":   total,
 	})
 }
 
@@ -418,6 +431,17 @@ func getLoanBaseinfoIDFromPath(c *gin.Context) (string, uint64, bool) {
 	return idStr, id, false
 }
 
+func convertSimpleLoanBaseinfo(loanBaseinfo *model.LoanBaseinfo) (*types.LoanBaseinfoSimpleObjDetail, error) {
+	data := &types.LoanBaseinfoSimpleObjDetail{}
+	err := copier.Copy(data, loanBaseinfo)
+	if err != nil {
+		return nil, err
+	}
+	// Note: if copier.Copy cannot assign a value to a field, add it here
+
+	return data, nil
+}
+
 func convertLoanBaseinfo(loanBaseinfo *model.LoanBaseinfo) (*types.LoanBaseinfoObjDetail, error) {
 	data := &types.LoanBaseinfoObjDetail{}
 	err := copier.Copy(data, loanBaseinfo)
@@ -438,6 +462,5 @@ func convertLoanBaseinfos(fromValues []*model.LoanBaseinfo) ([]*types.LoanBasein
 		}
 		toValues = append(toValues, data)
 	}
-
 	return toValues, nil
 }

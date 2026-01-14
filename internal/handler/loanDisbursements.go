@@ -37,7 +37,9 @@ type LoanDisbursementsHandler interface {
 }
 
 type loanDisbursementsHandler struct {
-	iDao dao.LoanDisbursementsDao
+	iDao        dao.LoanDisbursementsDao
+	baseinfoDao dao.LoanBaseinfoDao
+	auditDao    dao.LoanAuditsDao
 }
 
 // NewLoanDisbursementsHandler creating the handler interface
@@ -47,6 +49,11 @@ func NewLoanDisbursementsHandler() LoanDisbursementsHandler {
 			database.GetDB(), // db driver is mysql
 			cache.NewLoanDisbursementsCache(database.GetCacheType()),
 		),
+		baseinfoDao: dao.NewLoanBaseinfoDao(
+			database.GetDB(),
+			cache.NewLoanBaseinfoCache(database.GetCacheType()),
+		),
+		auditDao: dao.NewLoanAuditsDao(database.GetDB(), cache.NewLoanAuditsCache(database.GetCacheType())),
 	}
 }
 
@@ -180,7 +187,9 @@ func (h *loanDisbursementsHandler) GetByID(c *gin.Context) {
 	}
 
 	ctx := middleware.WrapCtx(c)
-	loanDisbursements, err := h.iDao.GetByID(ctx, id)
+
+	// 1) 放款单
+	disb, err := h.iDao.GetByID(ctx, id)
 	if err != nil {
 		if errors.Is(err, database.ErrRecordNotFound) {
 			logger.Warn("GetByID not found", logger.Err(err), logger.Any("id", id), middleware.GCtxRequestIDField(c))
@@ -192,15 +201,58 @@ func (h *loanDisbursementsHandler) GetByID(c *gin.Context) {
 		return
 	}
 
-	data := &types.LoanDisbursementsObjDetail{}
-	err = copier.Copy(data, loanDisbursements)
-	if err != nil {
+	disbDTO := &types.LoanDisbursementsObjDetail{}
+	if err := copier.Copy(disbDTO, disb); err != nil {
 		response.Error(c, ecode.ErrGetByIDLoanDisbursements)
 		return
 	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
 
-	response.Success(c, gin.H{"loanDisbursements": data})
+	// 2) baseinfo
+	baseinfo, err := h.baseinfoDao.GetByID(ctx, uint64(disb.BaseinfoID))
+	if err != nil {
+		logger.Error("Get baseinfo error", logger.Err(err), logger.Any("baseinfo_id", disb.BaseinfoID), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+	baseDTO := &types.LoanBaseinfoObjDetail{}
+	if err := copier.Copy(baseDTO, baseinfo); err != nil {
+		response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
+		return
+	}
+
+	// 3) files（按 type 聚合）
+	files, err := h.baseinfoDao.GetFilesMapByBaseinfoID(ctx, uint64(disb.BaseinfoID))
+	if err != nil {
+		logger.Error("GetFilesMapByBaseinfoID error", logger.Err(err), logger.Any("baseinfo_id", disb.BaseinfoID), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+	if files == nil {
+		files = map[string][]string{}
+	}
+	baseDTO.Files = files
+
+	// 4) audits
+	auditRecords, err := h.auditDao.ListByBaseinfoID(ctx, uint64(disb.BaseinfoID))
+	if err != nil {
+		logger.Error("List audits error", logger.Err(err), logger.Any("baseinfo_id", disb.BaseinfoID), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+	audits := make([]*types.LoanAuditsObjDetail, 0, len(auditRecords))
+	for _, r := range auditRecords {
+		a := &types.LoanAuditsObjDetail{}
+		_ = copier.Copy(a, r)
+		// 如果 copier 对某些字段不工作，在这里手动补
+		audits = append(audits, a)
+	}
+
+	// 5) 返回聚合
+	response.Success(c, gin.H{
+		"disbursement": disbDTO,
+		"baseinfo":     baseDTO,
+		"audits":       audits,
+	})
 }
 
 // List get a paginated list of loanDisbursementss by custom conditions

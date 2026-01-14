@@ -35,6 +35,12 @@ type UpdateLoanUserCallRecordsByIDRequest struct {
 }
 
 // LoanUserCallRecordsObjDetail detail
+
+type LoanUserIDNameMap struct {
+	ID       uint64 `gorm:"column:id"`       // 对应数据库的id字段
+	Username string `gorm:"column:username"` // 对应数据库的username字段
+}
+
 type LoanUserCallRecordsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 	// 主键

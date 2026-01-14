@@ -35,6 +35,7 @@ type LoanUsersHandler interface {
 	Register(*gin.Context)
 	Login(*gin.Context)
 	Me(*gin.Context)
+	Refer(*gin.Context)
 	Create(c *gin.Context)
 	DeleteByID(c *gin.Context)
 	UpdateByID(c *gin.Context)
@@ -144,6 +145,18 @@ func (h *loanUsersHandler) Register(c *gin.Context) {
 
 	// share_code 连续冲突基本不可能，按内部错误处理
 	response.Output(c, ecode.InternalServerError.ToHTTPCode())
+}
+
+func (h *loanUsersHandler) Refer(c *gin.Context) {
+	ctx := middleware.WrapCtx(c)
+	result, err := h.iDao.GetIDAndUserNameMapList(ctx)
+	if err != nil {
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+	response.Success(c, gin.H{
+		"dict": result,
+	})
 }
 
 func (h *loanUsersHandler) Login(c *gin.Context) {

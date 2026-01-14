@@ -35,6 +35,8 @@ type LoanAuditsDao interface {
 	CreateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanAudits) (uint64, error)
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanAudits) error
+
+	ListByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*model.LoanAudits, error)
 }
 
 type loanAuditsDao struct {
@@ -60,6 +62,18 @@ func (d *loanAuditsDao) deleteCache(ctx context.Context, id uint64) error {
 		return d.cache.Del(ctx, id)
 	}
 	return nil
+}
+
+func (d *loanAuditsDao) ListByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*model.LoanAudits, error) {
+	var records []*model.LoanAudits
+	err := d.db.WithContext(ctx).
+		Where("baseinfo_id = ? AND deleted_at IS NULL", baseinfoID).
+		Order("created_at DESC, id DESC").
+		Find(&records).Error
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
 }
 
 // Create a new loanAudits, insert the record and the id value is written back to the table

@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -39,6 +40,7 @@ type LoanUsersDao interface {
 	GetByUsername(ctx context.Context, username string) (*model.LoanUsers, error)
 	GetRoleCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
 	GetPermCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
+	GetIDAndUserNameMapList(ctx context.Context) (map[uint64]string, error)
 }
 
 type loanUsersDao struct {
@@ -58,6 +60,25 @@ func NewLoanUsersDao(db *gorm.DB, xCache cache.LoanUsersCache) LoanUsersDao {
 		sfg:   new(singleflight.Group),
 	}
 }
+
+func (d *loanUsersDao) GetIDAndUserNameMapList(ctx context.Context) (map[uint64]string, error) {
+	var userList []types.LoanUserIDNameMap
+
+	// 2. 查询数据库，将结果扫描到切片中
+	err := d.db.WithContext(ctx).Table("loan_users").Select("id,username").Scan(&userList).Error
+	if err != nil {
+		return nil, err // 查询出错直接返回错误
+	}
+
+	// 3. 将切片数据转换为目标map结构
+	result := make(map[uint64]string, len(userList)) // 预分配容量，提升性能
+	for _, user := range userList {
+		result[user.ID] = user.Username
+	}
+
+	return result, err
+}
+
 func (d *loanUsersDao) GetRoleCodesByUserID(ctx context.Context, userID uint64) ([]string, error) {
 	var roleCodes []string
 
