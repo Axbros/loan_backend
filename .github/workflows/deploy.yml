@@ -1,0 +1,34 @@
+name: Deploy loan_go
+
+on:
+  push:
+    branches: [ "main" ]
+
+concurrency:
+  group: loan-go-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH (git pull + make run-nohup)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          port: ${{ secrets.SSH_PORT }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          script: |
+            set -e
+
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            # 确保是 main 最新
+            git fetch --all --prune
+            git reset --hard origin/main
+
+            # 编译/依赖（按你 Makefile 来）
+            make run-nohup CMD=start
