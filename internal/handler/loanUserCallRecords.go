@@ -237,8 +237,8 @@ func (h *loanUserCallRecordsHandler) List(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"loanUserCallRecordss": data,
-		"total":                total,
+		"records": data,
+		"total":   total,
 	})
 }
 
