@@ -19,13 +19,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
           port: ${{ secrets.SSH_PORT }}
-          key: '-----BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
-QyNTUxOQAAACC6PjWs98uQ7amPHtaF7AVadVkFbi136Bkos1bOjAeegwAAAJibLEuLmyxL
-iwAAAAtzc2gtZWQyNTUxOQAAACC6PjWs98uQ7amPHtaF7AVadVkFbi136Bkos1bOjAeegw
-AAAEBVHtu6e81edU5loYpsyr4uY7G0kEMTWIue9p7QemGbZbo+Naz3y5DtqY8e1oXsBVp1
-WQVuLXfoGSizVs6MB56DAAAAFWNvcGlsb3RzaHViQGdtYWlsLmNvbQ==
------END OPENSSH PRIVATE KEY-----'
+          key: ${{secrets.SSH_KEY}}
           script_stop: true
           script: |
             set -e
