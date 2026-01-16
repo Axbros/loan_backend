@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 type LoanMfaDevices struct {
@@ -11,9 +12,9 @@ type LoanMfaDevices struct {
 	UserID     int64      `gorm:"column:user_id;type:bigint(20);not null" json:"userID"`
 	Type       string     `gorm:"column:type;type:varchar(16);not null" json:"type"`
 	Name       string     `gorm:"column:name;type:varchar(64);not null" json:"name"`
-	SecretEnc  string     `gorm:"column:secret_enc;type:varbinary(255)" json:"secretEnc"`
+	SecretEnc  []byte     `gorm:"column:secret_enc;type:varbinary(255)" json:"-"`
 	IsPrimary  int        `gorm:"column:is_primary;type:tinyint(4);default:1;not null" json:"isPrimary"`
-	Status     int        `gorm:"column:status;type:tinyint(4);default:1;not null" json:"status"`
+	Status     int        `gorm:"column:status;type:tinyint(4);default:0;not null" json:"status"`
 	LastUsedAt *time.Time `gorm:"column:last_used_at;type:datetime" json:"lastUsedAt"`
 }
 

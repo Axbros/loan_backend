@@ -243,7 +243,7 @@ func (h *loanBaseinfoHandler) List(c *gin.Context) {
 		return
 	}
 
-	data, err := convertLoanBaseinfos(loanBaseinfos)
+	data, err := convertSimpleLoanBaseinfos(loanBaseinfos)
 	if err != nil {
 		response.Error(c, ecode.ErrListLoanBaseinfo)
 		return
@@ -457,6 +457,18 @@ func convertLoanBaseinfos(fromValues []*model.LoanBaseinfo) ([]*types.LoanBasein
 	toValues := []*types.LoanBaseinfoObjDetail{}
 	for _, v := range fromValues {
 		data, err := convertLoanBaseinfo(v)
+		if err != nil {
+			return nil, err
+		}
+		toValues = append(toValues, data)
+	}
+	return toValues, nil
+}
+
+func convertSimpleLoanBaseinfos(fromValues []*model.LoanBaseinfo) ([]*types.LoanBaseinfoSimpleObjDetail, error) {
+	toValues := []*types.LoanBaseinfoSimpleObjDetail{}
+	for _, v := range fromValues {
+		data, err := convertSimpleLoanBaseinfo(v)
 		if err != nil {
 			return nil, err
 		}

@@ -25,5 +25,6 @@ var (
 	UsernameAlreadyExists          = errcode.NewError(loanUserRolesBaseCode+11, "username already exists")
 	UsernameOrPasswordIncorrect    = errcode.NewError(loanUserRolesBaseCode+12, "incorrect password")
 	UserDisabled                   = errcode.NewError(loanUserRolesBaseCode+13, "user is disabled")
+
 	// error codes are globally unique, adding 1 to the previous error code
 )

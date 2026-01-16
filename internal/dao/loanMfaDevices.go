@@ -106,9 +106,7 @@ func (d *loanMfaDevicesDao) updateDataByID(ctx context.Context, db *gorm.DB, tab
 	if table.Name != "" {
 		update["name"] = table.Name
 	}
-	if table.SecretEnc != "" {
-		update["secret_enc"] = table.SecretEnc
-	}
+
 	if table.IsPrimary != 0 {
 		update["is_primary"] = table.IsPrimary
 	}

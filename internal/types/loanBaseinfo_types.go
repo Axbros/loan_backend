@@ -17,6 +17,7 @@ type CreateLoanBaseinfoRequest struct {
 	Age        int    `json:"age" binding:""`        // 年齡
 	Gender     string `json:"gender" binding:""`     // 性別
 	IdType     string `json:"idType" binding:""`     // 證件類型
+	Mobile     string `json:"mobile" binding:""`     //手机号码
 	IdNumber   string `json:"idNumber" binding:""`   // 證件號碼
 	IdCard     string `json:"idCard" binding:""`     // 證件
 	Operator   string `json:"operator" binding:""`   // 操作系統
@@ -45,15 +46,15 @@ type CreateLoanBaseinfoRequest struct {
 type UpdateLoanBaseinfoByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	FirstName  string `json:"firstName" binding:""`  // 姓
-	SecondName string `json:"secondName" binding:""` // 名
-	Age        int    `json:"age" binding:""`        // 年齡
-	Gender     string `json:"gender" binding:""`     // 性別
-	IdType     string `json:"idType" binding:""`     // 證件類型
-	IdNumber   string `json:"idNumber" binding:""`   // 證件號碼
-	IdCard     string `json:"idCard" binding:""`     // 證件
-	Operator   string `json:"operator" binding:""`   // 操作系統
-
+	FirstName     string `json:"firstName" binding:""`     // 姓
+	SecondName    string `json:"secondName" binding:""`    // 名
+	Age           int    `json:"age" binding:""`           // 年齡
+	Gender        string `json:"gender" binding:""`        // 性別
+	IdType        string `json:"idType" binding:""`        // 證件類型
+	IdNumber      string `json:"idNumber" binding:""`      // 證件號碼
+	IdCard        string `json:"idCard" binding:""`        // 證件
+	Operator      string `json:"operator" binding:""`      // 操作系統
+	Mobile        string `json:"mobile" binding:""`        //手机号码
 	Work          string `json:"work" binding:""`          // 工作
 	Company       string `json:"company" binding:""`       // 公司
 	Salary        int    `json:"salary" binding:""`        // 薪資
@@ -78,20 +79,20 @@ type UpdateLoanBaseinfoByIDRequest struct {
 type LoanBaseinfoObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
-	FirstName  string `json:"firstName"`  // 姓
-	SecondName string `json:"secondName"` // 名
-	Age        int    `json:"age"`        // 年齡
-	Gender     string `json:"gender"`     // 性別
-	IdType     string `json:"idType"`     // 證件類型
-	IdNumber   string `json:"idNumber"`   // 證件號碼
-	IdCard     string `json:"idCard"`     // 證件
-	Operator   string `json:"operator"`   // 操作系統
-
-	Work          string `json:"work"`          // 工作
-	Company       string `json:"company"`       // 公司
-	Salary        int    `json:"salary"`        // 薪資
-	MaritalStatus int    `json:"maritalStatus"` // 婚否
-	HasHouse      int    `json:"hasHouse"`      // 是否有房
+	FirstName     string `json:"firstName"`         // 姓
+	SecondName    string `json:"secondName"`        // 名
+	Age           int    `json:"age"`               // 年齡
+	Gender        string `json:"gender"`            // 性別
+	IdType        string `json:"idType"`            // 證件類型
+	IdNumber      string `json:"idNumber"`          // 證件號碼
+	IdCard        string `json:"idCard"`            // 證件
+	Operator      string `json:"operator"`          // 操作系統
+	Mobile        string `json:"mobile" binding:""` //手机号码
+	Work          string `json:"work"`              // 工作
+	Company       string `json:"company"`           // 公司
+	Salary        int    `json:"salary"`            // 薪資
+	MaritalStatus int    `json:"maritalStatus"`     // 婚否
+	HasHouse      int    `json:"hasHouse"`          // 是否有房
 
 	HasCar int `json:"hasCar"` // 是否有車
 
@@ -111,8 +112,8 @@ type LoanBaseinfoObjDetail struct {
 }
 
 type LoanBaseinfoSimpleObjDetail struct {
-	ID uint64 `json:"id"` // convert to uint64 id
-
+	ID                uint64 `json:"id"`                // convert to uint64 id
+	Mobile            string `json:"mobile" binding:""` //手机号码
 	FirstName         string `json:"firstName"`         // 姓
 	SecondName        string `json:"secondName"`        // 名
 	Age               int    `json:"age"`               // 年齡

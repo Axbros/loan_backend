@@ -1,10 +1,15 @@
 package handler
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
+	"io"
+	"loan/internal/config"
 	"math"
-	"math/rand"
 	"strconv"
 	"strings"
 	"time"
@@ -12,6 +17,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/jwt"
 	"github.com/go-sql-driver/mysql"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/go-dev-frame/sponge/pkg/copier"
@@ -36,6 +43,8 @@ type LoanUsersHandler interface {
 	Login(*gin.Context)
 	Me(*gin.Context)
 	Refer(*gin.Context)
+	SetUpMFA(*gin.Context)
+	BindMFA(*gin.Context)
 	Create(c *gin.Context)
 	DeleteByID(c *gin.Context)
 	UpdateByID(c *gin.Context)
@@ -47,6 +56,10 @@ type LoanUsersHandler interface {
 	ListByIDs(c *gin.Context)
 	ListByLastID(c *gin.Context)
 }
+
+const (
+	mfaIssuer = "ToPhone" // 你也可以放到配置里
+)
 
 type loanUsersHandler struct {
 	iDao dao.LoanUsersDao
@@ -60,6 +73,142 @@ func NewLoanUsersHandler() LoanUsersHandler {
 			cache.NewLoanUsersCache(database.GetCacheType()),
 		),
 	}
+}
+
+func (h *loanUsersHandler) BindMFA(c *gin.Context) {
+	form := &types.BindMFARequest{}
+	if err := c.ShouldBindJSON(form); err != nil {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+	otpCode := strings.TrimSpace(form.OTP)
+	if len(otpCode) != 6 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	ctx := middleware.WrapCtx(c)
+	uid, ok := getUIDFromClaims(c)
+	if !ok || uid == 0 {
+		response.Error(c, ecode.Unauthorized)
+		return
+	}
+
+	// 1) 找到该用户 pending 的主 MFA 设备（status=0, is_primary=1）
+	dev, err := h.iDao.GetPendingPrimaryMFADevice(ctx, uid)
+	if err != nil {
+		if errors.Is(err, database.ErrRecordNotFound) {
+			// 没有 pending 设备：说明还没 setup 或已绑定过
+			response.Error(c, ecode.NotFound)
+		} else {
+			response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		}
+		return
+	}
+
+	// 2) 解密 secret_enc
+	secret, err := decryptSecretFromBytes(dev.SecretEnc) // 你 SecretEnc 若改成 []byte，就不用 []byte(...)
+	if err != nil {
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+
+	// 3) 校验 OTP（允许 1 个时间窗口偏移，防止客户端时间略有偏差）
+	ok, err = totp.ValidateCustom(otpCode, secret, time.Now(), totp.ValidateOpts{
+		Period:    30,
+		Skew:      1,
+		Digits:    otp.DigitsSix,
+		Algorithm: otp.AlgorithmSHA1,
+	})
+	if err != nil {
+		// 一般是 secret 非法、编码问题等
+		logger.Error("totp.ValidateCustom error", logger.Err(err))
+		response.Error(c, ecode.ErrSecret)
+		return
+	}
+	if !ok {
+		response.Error(c, ecode.ErrValidateSecret) // 或你自定义 InvalidOTP
+		return
+	}
+
+	// 4) 开事务：激活设备 + 用户 mfa_enabled=1
+	err = h.iDao.ActivateMFADeviceAndUser(ctx, uid, dev.ID)
+	if err != nil {
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+
+	response.Success(c, gin.H{"ok": true})
+}
+
+func (h *loanUsersHandler) SetUpMFA(c *gin.Context) {
+	ctx := middleware.WrapCtx(c)
+
+	uid, ok := getUIDFromClaims(c) // 你已有的从claims取uid方式
+	if !ok || uid == 0 {
+		response.Error(c, ecode.Unauthorized)
+		return
+	}
+
+	// 1) 查用户（用来拿 username）
+	u, err := h.iDao.GetByID(ctx, uid)
+	if err != nil || u == nil {
+		response.Error(c, ecode.NotFound)
+		return
+	}
+	// 已启用 MFA 就不允许重复 setup（按你业务可调整）
+	if u.MfaEnabled == 1 {
+		response.Error(c, ecode.MFAAlreadyEnabled) // 你可以换成自定义：MFAAlreadyEnabled
+		return
+	}
+
+	// 2) 生成 TOTP key（secret + otpauth_url）
+	key, err := totp.Generate(totp.GenerateOpts{
+		Issuer:      "ToPhone",
+		AccountName: u.Username,
+		Period:      30,
+		Digits:      otp.DigitsSix,
+		Algorithm:   otp.AlgorithmSHA1,
+	})
+	if err != nil {
+		response.Error(c, ecode.ErrGenerateOTP)
+		return
+	}
+	secret := key.Secret()
+	otpauthURL := key.URL()
+
+	// 3) 加密 secret -> []byte 存到 secret_enc
+	secretEnc, err := encryptSecretToBytes(secret) // 见下方 helper
+	if err != nil {
+		response.Error(c, ecode.ErrEncrypt)
+		return
+	}
+
+	// 4) 维护主设备：把旧 primary 全部置 0（不删）
+	err = h.iDao.ClearPrimaryMFADevices(ctx, uid)
+	if err != nil {
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+	device := &model.LoanMfaDevices{
+		UserID:    int64(uid),
+		Type:      "TOTP",
+		Name:      "Google Authenticator",
+		SecretEnc: secretEnc, // []byte
+		IsPrimary: 1,
+		Status:    0, // pending
+	}
+	err = h.iDao.CreateMFADevice(ctx, device)
+	if err != nil {
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	// 6) 返回给前端：secret + otpauth_url（前端用 qrcode 生成二维码）
+	response.Success(c, gin.H{
+		"secret":      secret,
+		"otpauth_url": otpauthURL,
+	})
 }
 
 func (h *loanUsersHandler) Register(c *gin.Context) {
@@ -709,4 +858,84 @@ func getUIDFromClaims(c *gin.Context) (uint64, bool) {
 		return 0, false
 	}
 	return uid, true
+}
+
+func encryptSecretToBytes(plain string) ([]byte, error) {
+	keyStr := config.Get().Authorization.Key
+	if keyStr == "" {
+		return nil, errors.New("MFA_AES_KEY empty")
+	}
+
+	var key []byte
+	if len(keyStr) == 64 { // hex
+		b, err := hex.DecodeString(keyStr)
+		if err != nil {
+			return nil, err
+		}
+		key = b
+	} else {
+		key = []byte(keyStr)
+	}
+	if len(key) != 32 {
+		return nil, errors.New("MFA_AES_KEY must be 32 bytes or 64 hex chars")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, err
+	}
+
+	ciphertext := gcm.Seal(nil, nonce, []byte(plain), nil)
+	return append(nonce, ciphertext...), nil
+}
+
+func decryptSecretFromBytes(enc []byte) (string, error) {
+	keyStr := config.Get().Authorization.Key
+	if keyStr == "" {
+		return "", errors.New("MFA_AES_KEY empty")
+	}
+
+	var key []byte
+	if len(keyStr) == 64 {
+		b, err := hex.DecodeString(keyStr)
+		if err != nil {
+			return "", err
+		}
+		key = b
+	} else {
+		key = []byte(keyStr)
+	}
+	if len(key) != 32 {
+		return "", errors.New("MFA_AES_KEY must be 32 bytes or 64 hex chars")
+	}
+
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	nonceSize := gcm.NonceSize()
+	if len(enc) < nonceSize+16 {
+		return "", errors.New("ciphertext too short")
+	}
+
+	nonce := enc[:nonceSize]
+	ciphertext := enc[nonceSize:]
+	plain, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return "", err
+	}
+	return string(plain), nil
 }

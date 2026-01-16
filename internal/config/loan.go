@@ -29,17 +29,18 @@ func Set(conf *Config) {
 }
 
 type Config struct {
-	App        App          `yaml:"app" json:"app"`
-	Consul     Consul       `yaml:"consul" json:"consul"`
-	Database   Database     `yaml:"database" json:"database"`
-	Etcd       Etcd         `yaml:"etcd" json:"etcd"`
-	Grpc       Grpc         `yaml:"grpc" json:"grpc"`
-	GrpcClient []GrpcClient `yaml:"grpcClient" json:"grpcClient"`
-	HTTP       HTTP         `yaml:"http" json:"http"`
-	Jaeger     Jaeger       `yaml:"jaeger" json:"jaeger"`
-	Logger     Logger       `yaml:"logger" json:"logger"`
-	NacosRd    NacosRd      `yaml:"nacosRd" json:"nacosRd"`
-	Redis      Redis        `yaml:"redis" json:"redis"`
+	App           App           `yaml:"app" json:"app"`
+	Consul        Consul        `yaml:"consul" json:"consul"`
+	Database      Database      `yaml:"database" json:"database"`
+	Etcd          Etcd          `yaml:"etcd" json:"etcd"`
+	Grpc          Grpc          `yaml:"grpc" json:"grpc"`
+	GrpcClient    []GrpcClient  `yaml:"grpcClient" json:"grpcClient"`
+	HTTP          HTTP          `yaml:"http" json:"http"`
+	Jaeger        Jaeger        `yaml:"jaeger" json:"jaeger"`
+	Logger        Logger        `yaml:"logger" json:"logger"`
+	NacosRd       NacosRd       `yaml:"nacosRd" json:"nacosRd"`
+	Redis         Redis         `yaml:"redis" json:"redis"`
+	Authorization Authorization `yaml:"authorization" json:"authorization"`
 }
 
 type Consul struct {
@@ -178,4 +179,8 @@ type HTTP struct {
 	Port    int `yaml:"port" json:"port"`
 	Timeout int `yaml:"timeout" json:"timeout"`
 	TLS     TLS `yaml:"tls" json:"tls"`
+}
+
+type Authorization struct {
+	Key string `yaml:"key" json:"key"`
 }

@@ -143,3 +143,7 @@ type ListLoanUserssByIDsReply struct {
 		LoanUserss []LoanUsersObjDetail `json:"loanUserss"`
 	} `json:"data"` // return data
 }
+
+type BindMFARequest struct {
+	OTP string `json:"otp" binding:""`
+}

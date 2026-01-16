@@ -41,6 +41,10 @@ type LoanUsersDao interface {
 	GetRoleCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
 	GetPermCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
 	GetIDAndUserNameMapList(ctx context.Context) (map[uint64]string, error)
+	ClearPrimaryMFADevices(ctx context.Context, userID uint64) error
+	CreateMFADevice(ctx context.Context, device *model.LoanMfaDevices) error
+	GetPendingPrimaryMFADevice(ctx context.Context, userID uint64) (*model.LoanMfaDevices, error)
+	ActivateMFADeviceAndUser(ctx context.Context, userID uint64, deviceID uint64) error
 }
 
 type loanUsersDao struct {
@@ -59,6 +63,66 @@ func NewLoanUsersDao(db *gorm.DB, xCache cache.LoanUsersCache) LoanUsersDao {
 		cache: xCache,
 		sfg:   new(singleflight.Group),
 	}
+}
+
+func (d *loanUsersDao) ActivateMFADeviceAndUser(ctx context.Context, userID uint64, deviceID uint64) error {
+	now := time.Now()
+
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 1) 激活设备
+		if err := tx.Table("loan_mfa_devices").
+			Where("id = ? AND user_id = ? AND deleted_at IS NULL", deviceID, userID).
+			Updates(map[string]any{
+				"status":       1,
+				"last_used_at": now,
+			}).Error; err != nil {
+			return err
+		}
+
+		// 2) 启用用户 MFA
+		if err := tx.Table("loan_users").
+			Where("id = ? AND deleted_at IS NULL", userID).
+			Updates(map[string]any{
+				"mfa_enabled": 1,
+			}).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (d *loanUsersDao) GetPendingPrimaryMFADevice(ctx context.Context, userID uint64) (*model.LoanMfaDevices, error) {
+	dev := &model.LoanMfaDevices{}
+	err := d.db.WithContext(ctx).
+		Table("loan_mfa_devices").
+		Where("user_id = ? AND deleted_at IS NULL AND is_primary = 1 AND status = 0", userID).
+		Order("id DESC").
+		First(dev).Error
+	if err != nil {
+		return nil, err
+	}
+	return dev, nil
+}
+
+func (d *loanUsersDao) CreateMFADevice(ctx context.Context, device *model.LoanMfaDevices) error {
+	if device == nil {
+		return errors.New("device is nil")
+	}
+	return d.db.WithContext(ctx).
+		Table("loan_mfa_devices").
+		Create(device).Error
+}
+
+// 把该用户所有 primary 置为 0（只处理未软删的）
+func (d *loanUsersDao) ClearPrimaryMFADevices(ctx context.Context, userID uint64) error {
+	return d.db.WithContext(ctx).
+		Table("loan_mfa_devices").
+		Where("user_id = ? AND deleted_at IS NULL AND is_primary = 1", userID).
+		Updates(map[string]any{
+			"is_primary": 0,
+			"updated_at": time.Now(),
+		}).Error
 }
 
 func (d *loanUsersDao) GetIDAndUserNameMapList(ctx context.Context) (map[uint64]string, error) {

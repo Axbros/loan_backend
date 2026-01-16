@@ -147,9 +147,7 @@ func (d *loanBaseinfoDao) updateDataByID(ctx context.Context, db *gorm.DB, table
 	if table.Operator != "" {
 		update["operator"] = table.Operator
 	}
-	if table.Inviter != "" {
-		update["inviter"] = table.Inviter
-	}
+
 	if table.Work != "" {
 		update["work"] = table.Work
 	}
@@ -165,14 +163,12 @@ func (d *loanBaseinfoDao) updateDataByID(ctx context.Context, db *gorm.DB, table
 	if table.HasHouse != 0 {
 		update["has_house"] = table.HasHouse
 	}
-	if table.PropertyCertificate != "" {
-		update["property_certificate"] = table.PropertyCertificate
-	}
+
 	if table.HasCar != 0 {
 		update["has_car"] = table.HasCar
 	}
-	if table.VehicleRgistrationCertificate != "" {
-		update["vehicle_rgistration_certificate"] = table.VehicleRgistrationCertificate
+	if table.Mobile != "" {
+		update["mobile"] = table.Mobile
 	}
 	if table.ApplicationAmount != 0 {
 		update["application_amount"] = table.ApplicationAmount
