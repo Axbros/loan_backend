@@ -3,8 +3,12 @@ package handler
 import (
 	"errors"
 	"math"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pquerna/otp"
+	"github.com/pquerna/otp/totp"
 
 	"github.com/go-dev-frame/sponge/pkg/copier"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
@@ -29,6 +33,7 @@ type LoanBaseinfoHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
+	Review(c *gin.Context)
 
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
@@ -37,7 +42,9 @@ type LoanBaseinfoHandler interface {
 }
 
 type loanBaseinfoHandler struct {
-	iDao dao.LoanBaseinfoDao
+	iDao     dao.LoanBaseinfoDao
+	auditDao dao.LoanAuditsDao
+	userDao  dao.LoanUsersDao
 }
 
 // NewLoanBaseinfoHandler creating the handler interface
@@ -47,6 +54,137 @@ func NewLoanBaseinfoHandler() LoanBaseinfoHandler {
 			database.GetDB(), // db driver is mysql
 			cache.NewLoanBaseinfoCache(database.GetCacheType()),
 		),
+		auditDao: dao.NewLoanAuditsDao(
+			database.GetDB(),
+			cache.NewLoanAuditsCache(database.GetCacheType()),
+		),
+		userDao: dao.NewLoanUsersDao(
+			database.GetDB(),
+			cache.NewLoanUsersCache(database.GetCacheType()),
+		),
+	}
+}
+
+type Audit_Status int
+type Audit_Type int
+
+const (
+	Rejected      Audit_Status = -1 // 机审拒绝
+	Pending       Audit_Status = 0
+	PreReview     Audit_Status = 1 //初审通过，等待财务审核
+	FinanceReview Audit_Status = 2 //财务审核通过，最终台
+)
+
+const (
+	PreReviewType     Audit_Type = iota //初审审核
+	FinanceReviewType                   //放款审核
+	IncomeReviewType                    //回款审核
+
+)
+
+// 初审 审核通过移交给财务审核放款
+func (h *loanBaseinfoHandler) Review(c *gin.Context) {
+	ctx := middleware.WrapCtx(c)
+	uid, ok := getUIDFromClaims(c)
+	if !ok || uid == 0 {
+		response.Out(c, ecode.Unauthorized)
+		return
+	}
+
+	form := &types.PreAuditRequest{}
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+	// 0) 查当前用户是否启用 MFA
+	u, err := h.userDao.GetByID(ctx, uid)
+	if err != nil {
+		response.Error(c, ecode.ErrGetByIDLoanUsers)
+		return
+	}
+	if u.MfaEnabled == 1 {
+		otpCode := strings.TrimSpace(form.MfaCode)
+		if len(otpCode) != 6 {
+			response.Error(c, ecode.MFAOTPRequired) // 你自己定义
+			return
+		}
+
+		// 1) 查用户的 active 主设备
+		dev, err := h.userDao.GetActivePrimaryMFADevice(ctx, uid)
+		if err != nil {
+			response.Error(c, ecode.InternalServerError)
+			return
+		}
+
+		// 2) 解密 secret
+		secret, err := decryptSecretFromBytes(dev.SecretEnc) // SecretEnc 建议是 []byte
+		if err != nil {
+			response.Error(c, ecode.ErrSecret)
+			return
+		}
+		secret = strings.TrimSpace(secret)
+
+		// 3) 校验 OTP（允许 1 个窗口偏移）
+		ok, err := totp.ValidateCustom(otpCode, secret, time.Now(), totp.ValidateOpts{
+			Period:    30,
+			Skew:      1,
+			Digits:    otp.DigitsSix,
+			Algorithm: otp.AlgorithmSHA1,
+		})
+		if err != nil {
+			response.Error(c, ecode.ErrSecret)
+			return
+		}
+		if !ok {
+			response.Error(c, ecode.InvalidOTP)
+			return
+		}
+
+		// 4) 可选：更新 last_used_at
+		_ = h.userDao.TouchMFADeviceLastUsedAt(ctx, dev.ID)
+
+		//先audit表插入数据
+		var auditResult int
+
+		loanBaseinfoRecord, err := h.iDao.GetByID(ctx, form.CustomerID)
+		if err != nil {
+			logger.Warn("GetByID error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
+			return
+		}
+		//审核通过
+		if form.AuditResult {
+			auditResult = 1
+			loanBaseinfoRecord.AuditStatus = auditResult
+
+		} else {
+			auditResult = -1
+			loanBaseinfoRecord.AuditStatus = auditResult
+		}
+		err = h.iDao.UpdateByID(ctx, loanBaseinfoRecord)
+		if err != nil {
+			logger.Warn("UpdateByID error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrUpdateByIDLoanBaseinfo)
+			return
+		}
+
+		auditType := PreReviewType
+		record := &model.LoanAudits{
+			AuditResult:   auditResult,
+			AuditType:     int(auditType),
+			AuditComment:  form.Remark,
+			BaseinfoID:    form.CustomerID,
+			AuditorUserID: uid,
+		}
+
+		err = h.auditDao.Create(ctx, record)
+		if err != nil {
+			response.Error(c, ecode.ErrCreateLoanAudits)
+			return
+		}
+		response.Success(c, gin.H{})
 	}
 }
 

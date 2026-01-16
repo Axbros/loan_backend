@@ -57,10 +57,6 @@ type LoanUsersHandler interface {
 	ListByLastID(c *gin.Context)
 }
 
-const (
-	mfaIssuer = "ToPhone" // 你也可以放到配置里
-)
-
 type loanUsersHandler struct {
 	iDao dao.LoanUsersDao
 }

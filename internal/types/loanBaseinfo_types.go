@@ -9,6 +9,12 @@ import (
 var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
+type PreAuditRequest struct {
+	CustomerID  uint64 `json:"customerID"`
+	AuditResult bool   `json:"auditResult"`
+	Remark      string `json:"remark"`
+	MfaCode     string `json:"mfaCode"`
+}
 
 // CreateLoanBaseinfoRequest request params
 type CreateLoanBaseinfoRequest struct {
