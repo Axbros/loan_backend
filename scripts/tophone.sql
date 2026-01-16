@@ -11,7 +11,7 @@
  Target Server Version : 90500 (9.5.0)
  File Encoding         : 65001
 
- Date: 15/01/2026 15:21:02
+ Date: 16/01/2026 18:33:02
 */
 
 SET NAMES utf8mb4;
@@ -27,6 +27,7 @@ CREATE TABLE `loan_audits` (
   `audit_result` tinyint NOT NULL COMMENT '审核结果：1通过 -1拒绝',
   `audit_comment` varchar(255) DEFAULT NULL COMMENT '审核备注/原因',
   `auditor_user_id` bigint NOT NULL COMMENT '审核人员(loan_users.id)',
+  `audit_type` varchar(255) DEFAULT NULL COMMENT '审核类型(初审、放款审核、回款审核)',
   `created_at` datetime NOT NULL COMMENT '审核时间(即审核通过/拒绝时间)',
   `deleted_at` datetime DEFAULT NULL COMMENT '软删除时间(NULL未删除)',
   PRIMARY KEY (`id`),
@@ -34,14 +35,14 @@ CREATE TABLE `loan_audits` (
   KEY `idx_audit_user_time` (`auditor_user_id`,`created_at`) COMMENT '按审核人/时间查询',
   CONSTRAINT `fk_audit_baseinfo` FOREIGN KEY (`baseinfo_id`) REFERENCES `loan_baseinfo` (`id`),
   CONSTRAINT `fk_audit_user` FOREIGN KEY (`auditor_user_id`) REFERENCES `loan_users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4  COMMENT='申请审核记录表(审核时间即 created_at)';
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='申请审核记录表(审核时间即 created_at)';
 
 -- ----------------------------
 -- Records of loan_audits
 -- ----------------------------
 BEGIN;
-INSERT INTO `loan_audits` (`id`, `baseinfo_id`, `audit_result`, `audit_comment`, `auditor_user_id`, `created_at`, `deleted_at`) VALUES (1, 1, 1, '初审通过，资料齐全', 2, '2026-01-12 19:52:29', NULL);
-INSERT INTO `loan_audits` (`id`, `baseinfo_id`, `audit_result`, `audit_comment`, `auditor_user_id`, `created_at`, `deleted_at`) VALUES (2, 1, 1, '复审确认收入稳定，风险可控', 1, '2026-01-13 19:52:37', NULL);
+INSERT INTO `loan_audits` (`id`, `baseinfo_id`, `audit_result`, `audit_comment`, `auditor_user_id`, `audit_type`, `created_at`, `deleted_at`) VALUES (1, 1, 1, '初审通过，资料齐全', 2, NULL, '2026-01-12 19:52:29', NULL);
+INSERT INTO `loan_audits` (`id`, `baseinfo_id`, `audit_result`, `audit_comment`, `auditor_user_id`, `audit_type`, `created_at`, `deleted_at`) VALUES (2, 1, 1, '复审确认收入稳定，风险可控', 2, NULL, '2026-01-13 19:52:37', NULL);
 COMMIT;
 
 -- ----------------------------
@@ -54,6 +55,7 @@ CREATE TABLE `loan_baseinfo` (
   `second_name` varchar(32) DEFAULT NULL COMMENT '名',
   `age` int DEFAULT NULL COMMENT '年齡',
   `gender` varchar(4) DEFAULT NULL COMMENT '性別',
+  `mobile` varchar(18) NOT NULL COMMENT '手机号码',
   `id_type` varchar(32) DEFAULT NULL COMMENT '證件類型',
   `id_number` varchar(32) DEFAULT NULL COMMENT '證件號碼',
   `id_card` varchar(255) DEFAULT NULL COMMENT '證件',
@@ -63,9 +65,7 @@ CREATE TABLE `loan_baseinfo` (
   `salary` int DEFAULT NULL COMMENT '薪資',
   `marital_status` tinyint DEFAULT NULL COMMENT '婚否',
   `has_house` tinyint DEFAULT NULL COMMENT '是否有房',
-  `property_certificate` varchar(255) DEFAULT NULL COMMENT '房產證',
   `has_car` tinyint DEFAULT NULL COMMENT '是否有車',
-  `vehicle_rgistration_certificate` varchar(255) DEFAULT NULL COMMENT '行駛證',
   `application_amount` int DEFAULT NULL COMMENT '申請金額',
   `audit_status` tinyint DEFAULT '0' COMMENT '審核情況 0待審核 1審核通過 -1 審核拒絕',
   `bank_no` varchar(255) DEFAULT NULL COMMENT '銀行卡號',
@@ -83,48 +83,48 @@ CREATE TABLE `loan_baseinfo` (
   KEY `idx_baseinfo_referrer_user` (`referrer_user_id`) COMMENT '按邀请人查询申请记录',
   KEY `idx_baseinfo_ref_code` (`ref_code`) COMMENT '按ref查询',
   CONSTRAINT `fk_baseinfo_referrer_user` FOREIGN KEY (`referrer_user_id`) REFERENCES `loan_users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=87 DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=87 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_baseinfo
 -- ----------------------------
 BEGIN;
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (1, 'Wang', 'Lei', 29, 'M', 'ID_CARD', '110101199401011234', 'oss://idcard/wanglei_front.jpg', 'Android', 'Engineer', 'TechSoft Ltd.', 15000, 0, 0, NULL, 0, NULL, 100000, 0, '6222020200001234567', 0x3139322E3136382E332E31, '2026-01-14 19:12:30', '2026-01-14 19:12:30', '2026-01-15 13:20:21', NULL, NULL, 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (2, 'Li', 'Na', 34, 'F', 'ID_CARD', '310101198912123456', NULL, 'iOS', 'Sales', 'TradeCorp', 12000, NULL, NULL, NULL, NULL, NULL, 80000, 0, '6222020200007654321', 0x3139322E3136382E332E31, '2026-01-14 19:12:36', '2026-01-14 19:12:36', '2026-01-15 13:38:22', 1, 'REFAXBROS01', 30, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (3, 'Li', 'Na', 34, 'F', 'ID_CARD', '310101198912123456', NULL, 'iOS', 'Sales', 'TradeCorp', 12000, NULL, NULL, NULL, NULL, NULL, 80000, 0, '6222020200007654321', 0x3139322E3136382E332E31, '2026-01-14 19:12:41', '2026-01-14 19:12:41', NULL, 1, 'REFAXBROS01', 30, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (4, 'Chen', 'Yu', 27, 'F', 'ID_CARD', '320101199612124321', NULL, 'Android', 'Designer', 'Creative Studio', 18000, NULL, NULL, NULL, NULL, NULL, 50000, 1, '6228480402567890123', 0x3139322E3136382E332E31, '2026-01-14 19:12:48', '2026-01-14 19:12:48', NULL, NULL, NULL, 14, 1, '历史还款良好，人工加入白名单', '2026-01-14 19:12:48');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (5, 'Liu', 'Ming', 36, 'M', 'ID_CARD', '510101198801019999', NULL, 'Web', 'Freelancer', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 30000, -1, NULL, 0x3139322E3136382E332E31, '2026-01-14 19:12:55', '2026-01-14 19:12:55', NULL, NULL, NULL, 7, 2, '命中内部黑名单：多次逾期', '2026-01-14 19:12:55');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (6, 'Test', 'A', 28, 'M', 'ID_CARD', 'TID0001', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 100000, 1, '6222000000000001', 0x0A000001, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (7, 'Test', 'B', 30, 'F', 'ID_CARD', 'TID0002', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 120000, 1, '6222000000000002', 0x0A000002, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 30, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (8, 'Test', 'C', 26, 'M', 'ID_CARD', 'TID0003', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 90000, 1, '6222000000000003', 0x0A000003, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 7, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (9, 'Test', 'D', 35, 'F', 'ID_CARD', 'TID0004', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 150000, 1, '6222000000000004', 0x0A000004, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 60, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (10, 'Test', 'E', 41, 'M', 'ID_CARD', 'TID0005', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 80000, 1, '6222000000000005', 0x0A000005, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (11, 'Test', 'F', 33, 'F', 'ID_CARD', 'TID0006', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 110000, 1, '6222000000000006', 0x0A000006, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 30, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (12, 'Test', 'G', 29, 'M', 'ID_CARD', 'TID0007', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 200000, 1, '6222000000000007', 0x0A000007, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (13, 'Test', 'H', 27, 'F', 'ID_CARD', 'TID0008', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 70000, 1, '6222000000000008', 0x0A000008, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 7, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (14, 'Test', 'I', 38, 'M', 'ID_CARD', 'TID0009', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 180000, 1, '6222000000000009', 0x0A000009, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 45, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (15, 'Test', 'J', 24, 'F', 'ID_CARD', 'TID0010', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 60000, 1, '6222000000000010', 0x0A00000A, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (66, '王', '磊', 29, 'M', 'ID_CARD', '110101199401011234', 'ID110101199401011234.jpg', 'iOS 17.0', '软件工程师', '北京科技有限公司', 25000, 1, 1, NULL, 1, NULL, 100000, 0, '6222081001001234567', 0xC0A80165, '2026-01-01 10:00:00', '2026-01-01 10:00:00', NULL, 1, 'REF00001', 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (67, '王', '磊', 29, 'M', 'ID_CARD', '110101199401011234', 'ID110101199401011234.jpg', 'iOS 17.0', '软件工程师', '北京科技有限公司', 25000, 1, 1, NULL, 1, NULL, 100000, 0, '6222081001001234567', 0xC0A80165, '2026-01-01 10:00:00', '2026-01-01 10:00:00', NULL, 1, 'REF00001', 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (68, '李', '娜', 34, 'F', 'ID_CARD', '310101198912123456', 'ID310101198912123456.jpg', 'Android 14', '财务经理', '上海金融有限公司', 35000, 1, 1, NULL, 1, NULL, 80000, 1, '6228480402567890123', 0xC0A80166, '2026-01-02 11:00:00', '2026-01-02 11:00:00', NULL, 2, 'REF00002', 30, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (69, '陈', '宇', 27, 'F', 'ID_CARD', '320101199612124321', 'ID320101199612124321.jpg', 'iOS 16.5', '人力资源专员', '江苏贸易有限公司', 18000, 0, 0, NULL, 0, NULL, 50000, 0, '6259991234567890123', 0xC0A80167, '2026-01-03 09:30:00', '2026-01-03 09:30:00', NULL, 3, 'REF00003', 14, 1, '优质客户', '2026-01-03 10:00:00');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (70, '刘', '明', 36, 'M', 'ID_CARD', '510101198801019999', 'ID510101198801019999.jpg', 'Windows 11', '销售总监', '四川科技有限公司', 45000, 1, 1, NULL, 1, NULL, 30000, -1, '6226667890123456789', 0xC0A80168, '2026-01-04 14:00:00', '2026-01-04 15:00:00', NULL, 1, 'REF00004', 7, 2, '信用逾期', '2026-01-04 16:00:00');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (71, '张', '伟', 41, 'M', 'ID_CARD', '440101198305051234', 'ID440101198305051234.jpg', 'macOS 14', '项目经理', '广东建设有限公司', 50000, 1, 1, NULL, 1, NULL, 150000, 1, '6229998765432109876', 0xC0A80169, '2026-01-05 08:00:00', '2026-01-05 08:30:00', NULL, 2, 'REF00005', 21, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (72, '赵', '丽', 25, 'F', 'ID_CARD', '210101199808085678', 'ID210101199808085678.jpg', 'Android 13', '行政助理', '辽宁商贸有限公司', 15000, 0, 0, NULL, 0, NULL, 20000, 0, '6227779876543210987', 0xC0A8016A, '2026-01-06 16:00:00', '2026-01-06 16:00:00', NULL, 3, 'REF00006', 7, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (73, '黄', '浩', 33, 'M', 'ID_CARD', '430101199011118765', 'ID430101199011118765.jpg', 'iOS 17.1', '产品经理', '湖南科技有限公司', 30000, 1, 0, NULL, 1, NULL, 70000, 0, '6225551234567890123', 0xC0A8016B, '2026-01-07 10:30:00', '2026-01-07 10:30:00', NULL, 1, 'REF00007', 30, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (74, '周', '敏', 28, 'F', 'ID_CARD', '330101199503037654', 'ID330101199503037654.jpg', 'Windows 10', '客服专员', '浙江服务有限公司', 16000, 0, 0, NULL, 0, NULL, 15000, -1, '6224448765432109876', 0xC0A8016C, '2026-01-08 13:00:00', '2026-01-08 14:00:00', NULL, 2, 'REF00008', 14, 2, '收入不稳定', '2026-01-08 15:00:00');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (75, '吴', '强', 38, 'M', 'ID_CARD', '350101198507076543', 'ID350101198507076543.jpg', 'Android 12', '工程师', '福建制造有限公司', 40000, 1, 1, NULL, 1, NULL, 90000, 1, '6223337654321098765', 0xC0A8016D, '2026-01-09 09:00:00', '2026-01-09 09:15:00', NULL, 3, 'REF00009', 21, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (76, '徐', '芳', 31, 'F', 'ID_CARD', '610101199209094321', 'ID610101199209094321.jpg', 'macOS 13', '设计师', '陕西创意有限公司', 28000, 1, 0, NULL, 0, NULL, 60000, 0, '6222226543210987654', 0xC0A8016E, '2026-01-10 11:30:00', '2026-01-10 11:30:00', NULL, 1, 'REF00010', 7, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (77, '孙', '杰', 26, 'M', 'ID_CARD', '120101199712123456', 'ID120101199712123456.jpg', 'iOS 16.4', '程序员', '天津科技有限公司', 22000, 0, 0, NULL, 1, NULL, 40000, 0, '6221115432109876543', 0xC0A8016F, '2026-01-11 15:00:00', '2026-01-11 15:00:00', NULL, 2, 'REF00011', 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (78, '马', '丽', 37, 'F', 'ID_CARD', '650101198604048765', 'ID650101198604048765.jpg', 'Windows 11', '教师', '新疆教育有限公司', 20000, 1, 1, NULL, 0, NULL, 35000, -1, '6220004321098765432', 0xC0A80170, '2026-01-12 08:30:00', '2026-01-12 09:00:00', NULL, 3, 'REF00012', 30, 2, '负债过高', '2026-01-12 10:00:00');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (79, '朱', '军', 40, 'M', 'ID_CARD', '500101198310107654', 'ID500101198310107654.jpg', 'Android 14', '医生', '重庆医疗有限公司', 55000, 1, 1, NULL, 1, NULL, 120000, 1, '6219993210987654321', 0xC0A80171, '2026-01-13 14:30:00', '2026-01-13 14:45:00', NULL, 1, 'REF00013', 21, 1, '优质客户', '2026-01-13 15:00:00');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (80, '胡', '欣', 24, 'F', 'ID_CARD', '460101199906066543', 'ID460101199906066543.jpg', 'iOS 17.0', '实习生', '海南旅游有限公司', 8000, 0, 0, NULL, 0, NULL, 10000, 0, '6218882109876543210', 0xC0A80172, '2026-01-14 10:00:00', '2026-01-14 10:00:00', NULL, 2, 'REF00014', 7, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (81, '林', '涛', 32, 'M', 'ID_CARD', '360101199102025432', 'ID360101199102025432.jpg', 'macOS 14', '摄影师', '江西传媒有限公司', 26000, 0, 0, NULL, 1, NULL, 50000, 0, '6217771098765432109', 0xC0A80173, '2026-01-15 16:30:00', '2026-01-15 16:30:00', NULL, 3, 'REF00015', 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (82, '郭', '燕', 30, 'F', 'ID_CARD', '340101199307074321', 'ID340101199307074321.jpg', 'Windows 10', '护士', '安徽医疗有限公司', 24000, 1, 0, NULL, 0, NULL, 45000, 1, '6216660987654321098', 0xC0A80174, '2026-01-16 09:30:00', '2026-01-16 10:00:00', NULL, 1, 'REF00016', 30, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (83, '何', '勇', 39, 'M', 'ID_CARD', '540101198408083210', 'ID540101198408083210.jpg', 'Android 13', '建筑工人', '西藏建设有限公司', 32000, 1, 1, NULL, 1, NULL, 80000, -1, '6215559876543210987', 0xC0A80175, '2026-01-17 13:30:00', '2026-01-17 14:00:00', NULL, 2, 'REF00017', 21, 2, '征信不良', '2026-01-17 15:00:00');
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (84, '高', '静', 27, 'F', 'ID_CARD', '630101199609092109', 'ID630101199609092109.jpg', 'iOS 16.5', '翻译', '青海外贸有限公司', 21000, 0, 0, NULL, 0, NULL, 25000, 0, '6214448765432109876', 0xC0A80176, '2026-01-18 11:00:00', '2026-01-18 11:00:00', NULL, 3, 'REF00018', 7, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (85, '罗', '刚', 35, 'M', 'ID_CARD', '530101198811111098', 'ID530101198811111098.jpg', 'Windows 11', '厨师', '云南餐饮有限公司', 28000, 1, 0, NULL, 1, NULL, 60000, 0, '6213337654321098765', 0xC0A80177, '2026-01-19 15:30:00', '2026-01-19 15:30:00', NULL, 1, 'REF00019', 14, 0, NULL, NULL);
-INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `property_certificate`, `has_car`, `vehicle_rgistration_certificate`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (86, '郑', '艳', 29, 'F', 'ID_CARD', '410101199412120987', 'ID410101199412120987.jpg', 'Android 12', '导购', '河南零售有限公司', 18000, 0, 0, NULL, 0, NULL, 30000, 1, '6212226543210987654', 0xC0A80178, '2026-01-20 08:00:00', '2026-01-20 08:15:00', NULL, 2, 'REF00020', 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (1, 'Wang', 'Lei', 29, 'M', '16600229988', 'ID_CARD', '110101199401011234', 'oss://idcard/wanglei_front.jpg', 'Android', 'Engineer', 'TechSoft Ltd.', 15000, 0, 0, 0, 100000, 0, '6222020200001234567', 0x3139322E3136382E332E31, '2026-01-14 19:12:30', '2026-01-14 19:12:30', '2026-01-15 13:20:21', NULL, NULL, 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (2, 'Li', 'Na', 34, 'F', '16600229988', 'ID_CARD', '310101198912123456', NULL, 'iOS', 'Sales', 'TradeCorp', 12000, NULL, NULL, NULL, 80000, 0, '6222020200007654321', 0x3139322E3136382E332E31, '2026-01-14 19:12:36', '2026-01-14 19:12:36', '2026-01-15 13:38:22', 1, 'REFAXBROS01', 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (3, 'Li', 'Na', 34, 'F', '16600229988', 'ID_CARD', '310101198912123456', NULL, 'iOS', 'Sales', 'TradeCorp', 12000, NULL, NULL, NULL, 80000, 0, '6222020200007654321', 0x3139322E3136382E332E31, '2026-01-14 19:12:41', '2026-01-14 19:12:41', NULL, 1, 'REFAXBROS01', 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (4, 'Chen', 'Yu', 27, 'F', '16600229988', 'ID_CARD', '320101199612124321', NULL, 'Android', 'Designer', 'Creative Studio', 18000, NULL, NULL, NULL, 50000, 1, '6228480402567890123', 0x3139322E3136382E332E31, '2026-01-14 19:12:48', '2026-01-14 19:12:48', NULL, NULL, NULL, 14, 1, '历史还款良好，人工加入白名单', '2026-01-14 19:12:48');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (5, 'Liu', 'Ming', 36, 'M', '16600229988', 'ID_CARD', '510101198801019999', NULL, 'Web', 'Freelancer', NULL, NULL, NULL, NULL, NULL, 30000, -1, NULL, 0x3139322E3136382E332E31, '2026-01-14 19:12:55', '2026-01-14 19:12:55', NULL, NULL, NULL, 7, 2, '命中内部黑名单：多次逾期', '2026-01-14 19:12:55');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (6, 'Test', 'A', 28, 'M', '16600229988', 'ID_CARD', 'TID0001', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 100000, 1, '6222000000000001', 0x0A000001, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (7, 'Test', 'B', 30, 'F', '16600229988', 'ID_CARD', 'TID0002', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 120000, 1, '6222000000000002', 0x0A000002, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (8, 'Test', 'C', 26, 'M', '16600229988', 'ID_CARD', 'TID0003', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 90000, 1, '6222000000000003', 0x0A000003, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 7, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (9, 'Test', 'D', 35, 'F', '16600229988', 'ID_CARD', 'TID0004', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 150000, 1, '6222000000000004', 0x0A000004, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 60, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (10, 'Test', 'E', 41, 'M', '16600229988', 'ID_CARD', 'TID0005', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 80000, 1, '6222000000000005', 0x0A000005, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (11, 'Test', 'F', 33, 'F', '16600229988', 'ID_CARD', 'TID0006', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 110000, 1, '6222000000000006', 0x0A000006, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (12, 'Test', 'G', 29, 'M', '16600229988', 'ID_CARD', 'TID0007', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 200000, 1, '6222000000000007', 0x0A000007, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (13, 'Test', 'H', 27, 'F', '16600229988', 'ID_CARD', 'TID0008', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 70000, 1, '6222000000000008', 0x0A000008, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 7, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (14, 'Test', 'I', 38, 'M', '16600229988', 'ID_CARD', 'TID0009', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 180000, 1, '6222000000000009', 0x0A000009, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 45, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (15, 'Test', 'J', 24, 'F', '16600229988', 'ID_CARD', 'TID0010', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 60000, 1, '6222000000000010', 0x0A00000A, '2026-01-14 19:39:40', '2026-01-14 19:39:40', NULL, NULL, NULL, 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (66, '王', '磊', 29, 'M', '16600229988', 'ID_CARD', '110101199401011234', 'ID110101199401011234.jpg', 'iOS 17.0', '软件工程师', '北京科技有限公司', 25000, 1, 1, 1, 100000, 0, '6222081001001234567', 0xC0A80165, '2026-01-01 10:00:00', '2026-01-01 10:00:00', NULL, 1, 'REF00001', 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (67, '王', '磊', 29, 'M', '16600229988', 'ID_CARD', '110101199401011234', 'ID110101199401011234.jpg', 'iOS 17.0', '软件工程师', '北京科技有限公司', 25000, 1, 1, 1, 100000, 0, '6222081001001234567', 0xC0A80165, '2026-01-01 10:00:00', '2026-01-01 10:00:00', NULL, 1, 'REF00001', 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (68, '李', '娜', 34, 'F', '16600229988', 'ID_CARD', '310101198912123456', 'ID310101198912123456.jpg', 'Android 14', '财务经理', '上海金融有限公司', 35000, 1, 1, 1, 80000, 1, '6228480402567890123', 0xC0A80166, '2026-01-02 11:00:00', '2026-01-02 11:00:00', NULL, 2, 'REF00002', 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (69, '陈', '宇', 27, 'F', '16600229988', 'ID_CARD', '320101199612124321', 'ID320101199612124321.jpg', 'iOS 16.5', '人力资源专员', '江苏贸易有限公司', 18000, 0, 0, 0, 50000, 0, '6259991234567890123', 0xC0A80167, '2026-01-03 09:30:00', '2026-01-03 09:30:00', NULL, 3, 'REF00003', 14, 1, '优质客户', '2026-01-03 10:00:00');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (70, '刘', '明', 36, 'M', '16600229988', 'ID_CARD', '510101198801019999', 'ID510101198801019999.jpg', 'Windows 11', '销售总监', '四川科技有限公司', 45000, 1, 1, 1, 30000, -1, '6226667890123456789', 0xC0A80168, '2026-01-04 14:00:00', '2026-01-04 15:00:00', NULL, 1, 'REF00004', 7, 2, '信用逾期', '2026-01-04 16:00:00');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (71, '张', '伟', 41, 'M', '16600229988', 'ID_CARD', '440101198305051234', 'ID440101198305051234.jpg', 'macOS 14', '项目经理', '广东建设有限公司', 50000, 1, 1, 1, 150000, 1, '6229998765432109876', 0xC0A80169, '2026-01-05 08:00:00', '2026-01-05 08:30:00', NULL, 2, 'REF00005', 21, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (72, '赵', '丽', 25, 'F', '16600229988', 'ID_CARD', '210101199808085678', 'ID210101199808085678.jpg', 'Android 13', '行政助理', '辽宁商贸有限公司', 15000, 0, 0, 0, 20000, 0, '6227779876543210987', 0xC0A8016A, '2026-01-06 16:00:00', '2026-01-06 16:00:00', NULL, 3, 'REF00006', 7, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (73, '黄', '浩', 33, 'M', '16600229988', 'ID_CARD', '430101199011118765', 'ID430101199011118765.jpg', 'iOS 17.1', '产品经理', '湖南科技有限公司', 30000, 1, 0, 1, 70000, 0, '6225551234567890123', 0xC0A8016B, '2026-01-07 10:30:00', '2026-01-07 10:30:00', NULL, 1, 'REF00007', 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (74, '周', '敏', 28, 'F', '16600229988', 'ID_CARD', '330101199503037654', 'ID330101199503037654.jpg', 'Windows 10', '客服专员', '浙江服务有限公司', 16000, 0, 0, 0, 15000, -1, '6224448765432109876', 0xC0A8016C, '2026-01-08 13:00:00', '2026-01-08 14:00:00', NULL, 2, 'REF00008', 14, 2, '收入不稳定', '2026-01-08 15:00:00');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (75, '吴', '强', 38, 'M', '16600229988', 'ID_CARD', '350101198507076543', 'ID350101198507076543.jpg', 'Android 12', '工程师', '福建制造有限公司', 40000, 1, 1, 1, 90000, 1, '6223337654321098765', 0xC0A8016D, '2026-01-09 09:00:00', '2026-01-09 09:15:00', NULL, 3, 'REF00009', 21, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (76, '徐', '芳', 31, 'F', '16600229988', 'ID_CARD', '610101199209094321', 'ID610101199209094321.jpg', 'macOS 13', '设计师', '陕西创意有限公司', 28000, 1, 0, 0, 60000, 0, '6222226543210987654', 0xC0A8016E, '2026-01-10 11:30:00', '2026-01-10 11:30:00', NULL, 1, 'REF00010', 7, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (77, '孙', '杰', 26, 'M', '16600229988', 'ID_CARD', '120101199712123456', 'ID120101199712123456.jpg', 'iOS 16.4', '程序员', '天津科技有限公司', 22000, 0, 0, 1, 40000, 0, '6221115432109876543', 0xC0A8016F, '2026-01-11 15:00:00', '2026-01-11 15:00:00', NULL, 2, 'REF00011', 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (78, '马', '丽', 37, 'F', '16600229988', 'ID_CARD', '650101198604048765', 'ID650101198604048765.jpg', 'Windows 11', '教师', '新疆教育有限公司', 20000, 1, 1, 0, 35000, -1, '6220004321098765432', 0xC0A80170, '2026-01-12 08:30:00', '2026-01-12 09:00:00', NULL, 3, 'REF00012', 30, 2, '负债过高', '2026-01-12 10:00:00');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (79, '朱', '军', 40, 'M', '16600229988', 'ID_CARD', '500101198310107654', 'ID500101198310107654.jpg', 'Android 14', '医生', '重庆医疗有限公司', 55000, 1, 1, 1, 120000, 1, '6219993210987654321', 0xC0A80171, '2026-01-13 14:30:00', '2026-01-13 14:45:00', NULL, 1, 'REF00013', 21, 1, '优质客户', '2026-01-13 15:00:00');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (80, '胡', '欣', 24, 'F', '16600229988', 'ID_CARD', '460101199906066543', 'ID460101199906066543.jpg', 'iOS 17.0', '实习生', '海南旅游有限公司', 8000, 0, 0, 0, 10000, 0, '6218882109876543210', 0xC0A80172, '2026-01-14 10:00:00', '2026-01-14 10:00:00', NULL, 2, 'REF00014', 7, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (81, '林', '涛', 32, 'M', '16600229988', 'ID_CARD', '360101199102025432', 'ID360101199102025432.jpg', 'macOS 14', '摄影师', '江西传媒有限公司', 26000, 0, 0, 1, 50000, 0, '6217771098765432109', 0xC0A80173, '2026-01-15 16:30:00', '2026-01-15 16:30:00', NULL, 3, 'REF00015', 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (82, '郭', '燕', 30, 'F', '16600229988', 'ID_CARD', '340101199307074321', 'ID340101199307074321.jpg', 'Windows 10', '护士', '安徽医疗有限公司', 24000, 1, 0, 0, 45000, 1, '6216660987654321098', 0xC0A80174, '2026-01-16 09:30:00', '2026-01-16 10:00:00', NULL, 1, 'REF00016', 30, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (83, '何', '勇', 39, 'M', '16600229988', 'ID_CARD', '540101198408083210', 'ID540101198408083210.jpg', 'Android 13', '建筑工人', '西藏建设有限公司', 32000, 1, 1, 1, 80000, -1, '6215559876543210987', 0xC0A80175, '2026-01-17 13:30:00', '2026-01-17 14:00:00', NULL, 2, 'REF00017', 21, 2, '征信不良', '2026-01-17 15:00:00');
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (84, '高', '静', 27, 'F', '16600229988', 'ID_CARD', '630101199609092109', 'ID630101199609092109.jpg', 'iOS 16.5', '翻译', '青海外贸有限公司', 21000, 0, 0, 0, 25000, 0, '6214448765432109876', 0xC0A80176, '2026-01-18 11:00:00', '2026-01-18 11:00:00', NULL, 3, 'REF00018', 7, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (85, '罗', '刚', 35, 'M', '16600229988', 'ID_CARD', '530101198811111098', 'ID530101198811111098.jpg', 'Windows 11', '厨师', '云南餐饮有限公司', 28000, 1, 0, 1, 60000, 0, '6213337654321098765', 0xC0A80177, '2026-01-19 15:30:00', '2026-01-19 15:30:00', NULL, 1, 'REF00019', 14, 0, NULL, NULL);
+INSERT INTO `loan_baseinfo` (`id`, `first_name`, `second_name`, `age`, `gender`, `mobile`, `id_type`, `id_number`, `id_card`, `operator`, `work`, `company`, `salary`, `marital_status`, `has_house`, `has_car`, `application_amount`, `audit_status`, `bank_no`, `client_ip`, `created_at`, `updated_at`, `deleted_at`, `referrer_user_id`, `ref_code`, `loan_days`, `risk_list_status`, `risk_list_reason`, `risk_list_marked_at`) VALUES (86, '郑', '艳', 29, 'F', '16600229988', 'ID_CARD', '410101199412120987', 'ID410101199412120987.jpg', 'Android 12', '导购', '河南零售有限公司', 18000, 0, 0, 0, 30000, 1, '6212226543210987654', 0xC0A80178, '2026-01-20 08:00:00', '2026-01-20 08:15:00', NULL, 2, 'REF00020', 30, 0, NULL, NULL);
 COMMIT;
 
 -- ----------------------------
@@ -148,7 +148,7 @@ CREATE TABLE `loan_baseinfo_files` (
   KEY `idx_baseinfo` (`baseinfo_id`) COMMENT '按基础信息查询附件',
   KEY `idx_type` (`type`) COMMENT '按类型查询附件',
   CONSTRAINT `fk_baseinfo_files_baseinfo` FOREIGN KEY (`baseinfo_id`) REFERENCES `loan_baseinfo` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4  COMMENT='基础信息附件表(匿名用户上传，按type区分证件/材料，存OSS地址)';
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='基础信息附件表(匿名用户上传，按type区分证件/材料，存OSS地址)';
 
 -- ----------------------------
 -- Records of loan_baseinfo_files
@@ -193,7 +193,7 @@ CREATE TABLE `loan_collection_cases` (
   CONSTRAINT `fk_case_collector` FOREIGN KEY (`collector_user_id`) REFERENCES `loan_users` (`id`),
   CONSTRAINT `fk_case_disbursement` FOREIGN KEY (`disbursement_id`) REFERENCES `loan_disbursements` (`id`),
   CONSTRAINT `fk_case_schedule` FOREIGN KEY (`schedule_id`) REFERENCES `loan_repayment_schedules` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4  COMMENT='催收任务表(管理员批量分配逾期任务给催收人员，催收人员完成并备注)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='催收任务表(管理员批量分配逾期任务给催收人员，催收人员完成并备注)';
 
 -- ----------------------------
 -- Records of loan_collection_cases
@@ -219,7 +219,7 @@ CREATE TABLE `loan_collection_logs` (
   KEY `idx_log_collector_time` (`collector_user_id`,`created_at`) COMMENT '按催收人员查询跟进记录',
   CONSTRAINT `fk_log_case` FOREIGN KEY (`case_id`) REFERENCES `loan_collection_cases` (`id`),
   CONSTRAINT `fk_log_collector` FOREIGN KEY (`collector_user_id`) REFERENCES `loan_users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4  COMMENT='催收跟进记录表(一条任务可多次记录沟通内容/承诺/计划)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='催收跟进记录表(一条任务可多次记录沟通内容/承诺/计划)';
 
 -- ----------------------------
 -- Records of loan_collection_logs
@@ -243,7 +243,7 @@ CREATE TABLE `loan_department_roles` (
   KEY `role_id` (`role_id`),
   CONSTRAINT `loan_department_roles_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `loan_departments` (`id`),
   CONSTRAINT `loan_department_roles_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `loan_roles` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_department_roles
@@ -264,12 +264,13 @@ CREATE TABLE `loan_departments` (
   `updated_at` datetime NOT NULL,
   `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_departments
 -- ----------------------------
 BEGIN;
+INSERT INTO `loan_departments` (`id`, `name`, `parent_id`, `status`, `created_at`, `updated_at`, `deleted_at`) VALUES (1, '管理员', NULL, 1, '2026-01-16 11:40:28', '2026-01-16 11:40:33', NULL);
 COMMIT;
 
 -- ----------------------------
@@ -303,7 +304,7 @@ CREATE TABLE `loan_disbursements` (
   CONSTRAINT `fk_disburse_baseinfo` FOREIGN KEY (`baseinfo_id`) REFERENCES `loan_baseinfo` (`id`),
   CONSTRAINT `fk_disburse_payout_channel` FOREIGN KEY (`payout_channel_id`) REFERENCES `loan_payment_channels` (`id`),
   CONSTRAINT `fk_disburse_referrer` FOREIGN KEY (`source_referrer_user_id`) REFERENCES `loan_users` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4  COMMENT='放款单/待放款任务表(审核通过后生成，状态待放款->已放款)';
+) ENGINE=InnoDB AUTO_INCREMENT=51 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='放款单/待放款任务表(审核通过后生成，状态待放款->已放款)';
 
 -- ----------------------------
 -- Records of loan_disbursements
@@ -336,7 +337,7 @@ CREATE TABLE `loan_login_audit` (
   `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   KEY `idx_login_user` (`user_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_login_audit
@@ -355,7 +356,7 @@ CREATE TABLE `loan_mfa_devices` (
   `name` varchar(64) NOT NULL,
   `secret_enc` varbinary(255) DEFAULT NULL,
   `is_primary` tinyint NOT NULL DEFAULT '1',
-  `status` tinyint NOT NULL DEFAULT '1',
+  `status` tinyint NOT NULL DEFAULT '0',
   `last_used_at` datetime DEFAULT NULL,
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,
@@ -363,34 +364,13 @@ CREATE TABLE `loan_mfa_devices` (
   PRIMARY KEY (`id`),
   KEY `idx_mfa_user` (`user_id`),
   CONSTRAINT `loan_mfa_devices_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `loan_users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=17 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_mfa_devices
 -- ----------------------------
 BEGIN;
-COMMIT;
-
--- ----------------------------
--- Table structure for loan_mfa_recovery_codes
--- ----------------------------
-DROP TABLE IF EXISTS `loan_mfa_recovery_codes`;
-CREATE TABLE `loan_mfa_recovery_codes` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `user_id` bigint NOT NULL,
-  `code_hash` varbinary(64) NOT NULL,
-  `used_at` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `deleted_at` datetime DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  KEY `idx_rc_user` (`user_id`),
-  CONSTRAINT `loan_mfa_recovery_codes_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `loan_users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
-
--- ----------------------------
--- Records of loan_mfa_recovery_codes
--- ----------------------------
-BEGIN;
+INSERT INTO `loan_mfa_devices` (`id`, `user_id`, `type`, `name`, `secret_enc`, `is_primary`, `status`, `last_used_at`, `created_at`, `updated_at`, `deleted_at`) VALUES (16, 1, 'TOTP', 'Google Authenticator', 0xA5FA8ADFDBF1B37BC96D880DB015C37B17C350D955D95F9368D5341DE9E1DD22F38B7916614B572CA83EEF39A8088AB59515DF1AE5D26B4644F95440, 1, 1, '2026-01-16 14:22:36', '2026-01-16 14:04:44', '2026-01-16 14:22:36', NULL);
 COMMIT;
 
 -- ----------------------------
@@ -421,7 +401,7 @@ CREATE TABLE `loan_payment_channels` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_payment_channel_code` (`code`) COMMENT '渠道编码唯一',
   KEY `idx_payment_channel_status` (`status`) COMMENT '按状态筛选'
-) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4  COMMENT='统一支付渠道配置表(支持代付放款+代收回款，可禁用/启用，含手续费/限额/结算周期)';
+) ENGINE=InnoDB AUTO_INCREMENT=3 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='统一支付渠道配置表(支持代付放款+代收回款，可禁用/启用，含手续费/限额/结算周期)';
 
 -- ----------------------------
 -- Records of loan_payment_channels
@@ -446,7 +426,7 @@ CREATE TABLE `loan_permissions` (
   `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_permissions
@@ -483,7 +463,7 @@ CREATE TABLE `loan_referral_visits` (
   KEY `idx_visit_referrer_user` (`referrer_user_id`) COMMENT '按邀请人查访问',
   KEY `idx_visit_ref_code` (`ref_code`) COMMENT '按邀请码查访问',
   CONSTRAINT `fk_visit_referrer_user` FOREIGN KEY (`referrer_user_id`) REFERENCES `loan_users` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4  COMMENT='邀请链接访问/点击记录表(匿名访问，用于统计点击与转化)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='邀请链接访问/点击记录表(匿名访问，用于统计点击与转化)';
 
 -- ----------------------------
 -- Records of loan_referral_visits
@@ -521,7 +501,7 @@ CREATE TABLE `loan_repayment_schedules` (
   KEY `idx_schedule_due` (`due_date`,`status`) COMMENT '按到期日/状态查催收列表',
   KEY `idx_schedule_disburse` (`disbursement_id`) COMMENT '按放款单查计划',
   CONSTRAINT `fk_schedule_disbursement` FOREIGN KEY (`disbursement_id`) REFERENCES `loan_disbursements` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4  COMMENT='还款计划表(支持单期/分期，逾期/已还通过状态体现)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='还款计划表(支持单期/分期，逾期/已还通过状态体现)';
 
 -- ----------------------------
 -- Records of loan_repayment_schedules
@@ -561,7 +541,7 @@ CREATE TABLE `loan_repayment_transactions` (
   CONSTRAINT `fk_tx_collect_channel` FOREIGN KEY (`collect_channel_id`) REFERENCES `loan_payment_channels` (`id`),
   CONSTRAINT `fk_tx_disbursement` FOREIGN KEY (`disbursement_id`) REFERENCES `loan_disbursements` (`id`),
   CONSTRAINT `fk_tx_schedule` FOREIGN KEY (`schedule_id`) REFERENCES `loan_repayment_schedules` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4  COMMENT='回款流水表(记录每次实际回款，支持分期/部分还款，含回款渠道与订单号)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='回款流水表(记录每次实际回款，支持分期/部分还款，含回款渠道与订单号)';
 
 -- ----------------------------
 -- Records of loan_repayment_transactions
@@ -585,7 +565,7 @@ CREATE TABLE `loan_role_departments` (
   KEY `department_id` (`department_id`),
   CONSTRAINT `loan_role_departments_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `loan_roles` (`id`),
   CONSTRAINT `loan_role_departments_ibfk_2` FOREIGN KEY (`department_id`) REFERENCES `loan_departments` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_role_departments
@@ -609,7 +589,7 @@ CREATE TABLE `loan_role_permissions` (
   KEY `permission_id` (`permission_id`),
   CONSTRAINT `loan_role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `loan_roles` (`id`),
   CONSTRAINT `loan_role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `loan_permissions` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=10 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_role_permissions
@@ -641,7 +621,7 @@ CREATE TABLE `loan_roles` (
   `deleted_at` datetime DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `code` (`code`)
-) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_roles
@@ -674,7 +654,7 @@ CREATE TABLE `loan_user_call_records` (
   KEY `idx_calls_phone` (`phone_normalized`) COMMENT '按标准化号码查询(可用于风控)',
   KEY `idx_calls_hash` (`call_hash`) COMMENT '按去重哈希查询',
   CONSTRAINT `fk_calls_baseinfo` FOREIGN KEY (`baseinfo_id`) REFERENCES `loan_baseinfo` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4  COMMENT='通话记录采集表(匿名表单采集，与loan_baseinfo关联)';
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='通话记录采集表(匿名表单采集，与loan_baseinfo关联)';
 
 -- ----------------------------
 -- Records of loan_user_call_records
@@ -709,7 +689,7 @@ CREATE TABLE `loan_user_contacts` (
   KEY `idx_contacts_baseinfo` (`baseinfo_id`) COMMENT '按申请单查询通讯录',
   KEY `idx_contacts_hash` (`contact_hash`) COMMENT '按去重哈希查询',
   CONSTRAINT `fk_contacts_baseinfo` FOREIGN KEY (`baseinfo_id`) REFERENCES `loan_baseinfo` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4  COMMENT='用户通讯录采集表(匿名表单采集，与loan_baseinfo关联)';
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='用户通讯录采集表(匿名表单采集，与loan_baseinfo关联)';
 
 -- ----------------------------
 -- Records of loan_user_contacts
@@ -745,7 +725,7 @@ CREATE TABLE `loan_user_device_apps` (
   KEY `idx_apps_baseinfo` (`baseinfo_id`) COMMENT '按申请单查询应用列表',
   KEY `idx_apps_package` (`package_name`) COMMENT '按包名查询(可用于风控)',
   CONSTRAINT `fk_apps_baseinfo` FOREIGN KEY (`baseinfo_id`) REFERENCES `loan_baseinfo` (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4  COMMENT='设备软件列表采集表(匿名表单采集，与loan_baseinfo关联)';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='设备软件列表采集表(匿名表单采集，与loan_baseinfo关联)';
 
 -- ----------------------------
 -- Records of loan_user_device_apps
@@ -769,7 +749,7 @@ CREATE TABLE `loan_user_roles` (
   KEY `role_id` (`role_id`),
   CONSTRAINT `loan_user_roles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `loan_users` (`id`),
   CONSTRAINT `loan_user_roles_ibfk_2` FOREIGN KEY (`role_id`) REFERENCES `loan_roles` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_user_roles
@@ -797,7 +777,7 @@ CREATE TABLE `loan_user_sms_records` (
   KEY `idx_sms_baseinfo` (`baseinfo_id`) COMMENT '按申请单查询短信',
   KEY `idx_sms_time` (`sms_time`) COMMENT '按短信时间查询',
   CONSTRAINT `fk_sms_baseinfo` FOREIGN KEY (`baseinfo_id`) REFERENCES `loan_baseinfo` (`id`)
-) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4  COMMENT='短信记录采集表(匿名表单采集，与loan_baseinfo关联)';
+) ENGINE=InnoDB AUTO_INCREMENT=11 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='短信记录采集表(匿名表单采集，与loan_baseinfo关联)';
 
 -- ----------------------------
 -- Records of loan_user_sms_records
@@ -834,13 +814,13 @@ CREATE TABLE `loan_users` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`),
   UNIQUE KEY `uk_users_share_code` (`share_code`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 ;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- ----------------------------
 -- Records of loan_users
 -- ----------------------------
 BEGIN;
-INSERT INTO `loan_users` (`id`, `username`, `password_hash`, `department_id`, `mfa_enabled`, `mfa_required`, `status`, `created_at`, `updated_at`, `deleted_at`, `share_code`) VALUES (1, 'axbros', '$2a$10$Y0Wr7iRD2Z1xxNwV7uDAXuAhG6ECseNjUcjdnpwSdVcE1s3I/duKy', 1, 0, 0, 1, '2026-01-14 17:51:53', '2026-01-14 17:51:53', NULL, 'MvJHGT7XL-cp');
+INSERT INTO `loan_users` (`id`, `username`, `password_hash`, `department_id`, `mfa_enabled`, `mfa_required`, `status`, `created_at`, `updated_at`, `deleted_at`, `share_code`) VALUES (1, 'axbros', '$2a$10$Y0Wr7iRD2Z1xxNwV7uDAXuAhG6ECseNjUcjdnpwSdVcE1s3I/duKy', 1, 1, 0, 1, '2026-01-14 17:51:53', '2026-01-14 17:51:53', NULL, 'MvJHGT7XL-cp');
 INSERT INTO `loan_users` (`id`, `username`, `password_hash`, `department_id`, `mfa_enabled`, `mfa_required`, `status`, `created_at`, `updated_at`, `deleted_at`, `share_code`) VALUES (2, 'auditor', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5lWlP0r8kP7r9v8pJwD3h8m6cK4QK', 1, 0, 0, 1, '2026-01-14 19:36:30', '2026-01-14 19:36:30', NULL, 'REFAUDIT01');
 INSERT INTO `loan_users` (`id`, `username`, `password_hash`, `department_id`, `mfa_enabled`, `mfa_required`, `status`, `created_at`, `updated_at`, `deleted_at`, `share_code`) VALUES (3, 'referrer', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5lWlP0r8kP7r9v8pJwD3h8m6cK4QK', 1, 0, 0, 1, '2026-01-14 19:36:30', '2026-01-14 19:36:30', NULL, 'REFSHARE01');
 COMMIT;
