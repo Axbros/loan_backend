@@ -45,6 +45,8 @@ type LoanUsersDao interface {
 	CreateMFADevice(ctx context.Context, device *model.LoanMfaDevices) error
 	GetPendingPrimaryMFADevice(ctx context.Context, userID uint64) (*model.LoanMfaDevices, error)
 	ActivateMFADeviceAndUser(ctx context.Context, userID uint64, deviceID uint64) error
+	GetActivePrimaryMFADevice(ctx context.Context, userID uint64) (*model.LoanMfaDevices, error)
+	TouchMFADeviceLastUsedAt(ctx context.Context, deviceID uint64) error
 }
 
 type loanUsersDao struct {
@@ -63,6 +65,30 @@ func NewLoanUsersDao(db *gorm.DB, xCache cache.LoanUsersCache) LoanUsersDao {
 		cache: xCache,
 		sfg:   new(singleflight.Group),
 	}
+}
+
+func (d *loanUsersDao) GetActivePrimaryMFADevice(ctx context.Context, userID uint64) (*model.LoanMfaDevices, error) {
+	dev := &model.LoanMfaDevices{}
+	err := d.db.WithContext(ctx).
+		Table("loan_mfa_devices").
+		Where("user_id=? AND deleted_at IS NULL AND is_primary=1 AND status=1", userID).
+		Order("id DESC").
+		First(dev).Error
+	if err != nil {
+		return nil, err
+	}
+	return dev, nil
+}
+
+func (d *loanUsersDao) TouchMFADeviceLastUsedAt(ctx context.Context, deviceID uint64) error {
+	now := time.Now()
+	return d.db.WithContext(ctx).
+		Table("loan_mfa_devices").
+		Where("id=? AND deleted_at IS NULL", deviceID).
+		Updates(map[string]any{
+			"last_used_at": now,
+			"updated_at":   now,
+		}).Error
 }
 
 func (d *loanUsersDao) ActivateMFADeviceAndUser(ctx context.Context, userID uint64, deviceID uint64) error {

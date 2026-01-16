@@ -310,8 +310,7 @@ func (h *loanUsersHandler) Refer(c *gin.Context) {
 
 func (h *loanUsersHandler) Login(c *gin.Context) {
 	form := &types.LoginRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
+	if err := c.ShouldBindJSON(form); err != nil {
 		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.InvalidParams)
 		return
@@ -319,6 +318,7 @@ func (h *loanUsersHandler) Login(c *gin.Context) {
 
 	username := strings.ToLower(strings.TrimSpace(form.Username))
 	password := form.Password
+	otpCode := strings.TrimSpace(form.OTP)
 
 	if username == "" || password == "" {
 		response.Error(c, ecode.InvalidParams)
@@ -335,14 +335,13 @@ func (h *loanUsersHandler) Login(c *gin.Context) {
 		return
 	}
 	if user == nil || user.ID == 0 {
-		// 不要提示“用户名不存在”，统一返回账号密码错误
 		response.Error(c, ecode.UsernameOrPasswordIncorrect)
 		return
 	}
 
 	// 2) 状态检查
 	if user.Status != 1 {
-		response.Error(c, ecode.UserDisabled) // 你可以自己定义这个 ecode
+		response.Error(c, ecode.UserDisabled)
 		return
 	}
 
@@ -352,7 +351,57 @@ func (h *loanUsersHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// 4) 生成 token（你封装的函数）
+	// 4) 若开启 MFA：必须校验 OTP
+	if user.MfaEnabled == 1 {
+		// 4.1 必须提供 OTP
+		if len(otpCode) != 6 {
+			// 建议用专门的错误码：MFARequired / InvalidOTP
+			response.Error(c, ecode.MFAOTPRequired)
+			return
+		}
+
+		// 4.2 取主设备（active）
+		dev, err := h.iDao.GetActivePrimaryMFADevice(ctx, user.ID)
+		if err != nil {
+			// 查不到设备：说明用户表mfa_enabled=1但设备缺失，是数据异常
+			logger.Error("GetActivePrimaryMFADevice error", logger.Err(err), middleware.GCtxRequestIDField(c))
+			response.Output(c, ecode.InternalServerError.ToHTTPCode())
+			return
+		}
+
+		// 4.3 解密 secret
+		// ✅ 推荐你的 model SecretEnc 用 []byte；如果还是 string 就用 []byte(dev.SecretEnc)
+		secret, err := decryptSecretFromBytes(dev.SecretEnc)
+		if err != nil {
+			logger.Error("decryptSecret error", logger.Err(err), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrSecret)
+			return
+		}
+		secret = strings.TrimSpace(secret)
+
+		// 4.4 校验 OTP
+		ok, err := totp.ValidateCustom(otpCode, secret, time.Now(), totp.ValidateOpts{
+			Period:    30,
+			Skew:      1,
+			Digits:    otp.DigitsSix,
+			Algorithm: otp.AlgorithmSHA1,
+		})
+		if err != nil {
+			logger.Error("totp.ValidateCustom error", logger.Err(err), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrSecret)
+			return
+		}
+		if !ok {
+			// 不要返回太细的原因，避免暴露信息
+			response.Error(c, ecode.InvalidOTP)
+			return
+		}
+
+		// 可选：更新 last_used_at
+		_ = h.iDao.TouchMFADeviceLastUsedAt(ctx, dev.ID)
+	}
+
+	// 5) 生成 JWT（通过密码 + (可选) MFA 后才发）
 	token, err := generateAccessToken(strconv.FormatInt(int64(user.ID), 10))
 	if err != nil {
 		logger.Error("GenerateAccessToken error", logger.Err(err), middleware.GCtxRequestIDField(c))
@@ -360,7 +409,6 @@ func (h *loanUsersHandler) Login(c *gin.Context) {
 		return
 	}
 
-	// 5) 返回
 	response.Success(c, gin.H{
 		"token": token,
 		"user": gin.H{

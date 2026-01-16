@@ -17,6 +17,7 @@ type RegisterRequest struct {
 type LoginRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=64"`
 	Password string `json:"password" binding:"required,min=1,max=72"`
+	OTP      string `json:"otp"` // MFA 用，mfa_enabled=1 时必须
 }
 
 // CreateLoanUsersRequest request params
