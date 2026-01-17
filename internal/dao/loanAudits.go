@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -37,6 +38,7 @@ type LoanAuditsDao interface {
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanAudits) error
 
 	ListByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*model.LoanAudits, error)
+	GetByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*types.LoanAuditDetail, error)
 }
 
 type loanAuditsDao struct {
@@ -55,6 +57,18 @@ func NewLoanAuditsDao(db *gorm.DB, xCache cache.LoanAuditsCache) LoanAuditsDao {
 		cache: xCache,
 		sfg:   new(singleflight.Group),
 	}
+}
+
+func (d *loanAuditsDao) GetByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*types.LoanAuditDetail, error) {
+	var auditList []*types.LoanAuditDetail
+	// 核心查询部分（替换方式1中的第3步）
+	err := d.db.WithContext(ctx).Model(&model.LoanAudits{}).
+		Select("a.*, u.username as auditor_username").
+		Joins("INNER JOIN loan_users u ON a.auditor_user_id = u.id").
+		Where("a.baseinfo_id = ?", baseinfoID).
+		Table("loan_audits a"). // 给 loan_audits 起别名 a
+		Find(&auditList).Error
+	return auditList, err
 }
 
 func (d *loanAuditsDao) deleteCache(ctx context.Context, id uint64) error {

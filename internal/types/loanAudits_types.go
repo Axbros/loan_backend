@@ -39,6 +39,18 @@ type LoanAuditsObjDetail struct {
 	CreatedAt     *time.Time `json:"createdAt"`     // 审核时间(即审核通过/拒绝时间)
 }
 
+type LoanAuditDetail struct {
+	ID uint64 `json:"id"` // convert to uint64 id
+	// 审核记录ID
+	BaseinfoID   int    `json:"baseinfoID"`   // 关联申请单 loan_baseinfo.id
+	AuditResult  int    `json:"auditResult"`  // 审核结果：1通过 -1拒绝
+	AuditComment string `json:"auditComment"` // 审核备注/原因
+	//AuditorUserID int64      `json:"auditorUserID"` // 审核人员(loan_users.id)
+	AuditType     int        `json:"auditType"`
+	AuditUsername string     `gorm:"column:auditor_username" json:"auditUsername"`
+	CreatedAt     *time.Time `json:"createdAt"` // 审核时间(即审核通过/拒绝时间)
+}
+
 // CreateLoanAuditsReply only for api docs
 type CreateLoanAuditsReply struct {
 	Code int    `json:"code"` // return code
@@ -76,6 +88,10 @@ type DeleteLoanAuditssByIDsReply struct {
 	Code int      `json:"code"` // return code
 	Msg  string   `json:"msg"`  // return information description
 	Data struct{} `json:"data"` // return data
+}
+
+type RequestLoanAuditsDetail struct {
+	BaseinfoID uint64 `json:"baseinfoID" binding:""`
 }
 
 // ListLoanAuditssRequest request params

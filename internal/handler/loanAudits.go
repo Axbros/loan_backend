@@ -29,6 +29,7 @@ type LoanAuditsHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
+	Detail(c *gin.Context)
 
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
@@ -48,6 +49,27 @@ func NewLoanAuditsHandler() LoanAuditsHandler {
 			cache.NewLoanAuditsCache(database.GetCacheType()),
 		),
 	}
+}
+
+func (h *loanAuditsHandler) Detail(c *gin.Context) {
+	form := &types.RequestLoanAuditsDetail{}
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+	ctx := middleware.WrapCtx(c)
+	records, err := h.iDao.GetByBaseinfoID(ctx, form.BaseinfoID)
+	if err != nil {
+		logger.Warn("GetByBaseinfoID error: ", logger.Err(err))
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+	response.Success(c, gin.H{
+		"records": records,
+	})
+
 }
 
 // Create a new loanAudits

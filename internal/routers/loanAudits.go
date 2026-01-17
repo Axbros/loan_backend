@@ -13,7 +13,7 @@ func init() {
 }
 
 func loanAuditsRouter(group *gin.RouterGroup, h handler.LoanAuditsHandler) {
-	g := group.Group("/loanAudits")
+	g := group.Group("/audit")
 
 	// JWT authentication reference: https://go-sponge.com/component/transport/gin.html#jwt-authorization-middleware
 
@@ -28,7 +28,7 @@ func loanAuditsRouter(group *gin.RouterGroup, h handler.LoanAuditsHandler) {
 	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanAudits/:id
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanAudits/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanAudits/list
-
+	g.POST("/detail", h.Detail)
 	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanAudits/delete/ids
 	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanAudits/condition
 	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanAudits/list/ids

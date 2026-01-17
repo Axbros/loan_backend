@@ -22,6 +22,7 @@ var LoanAuditsColumnNames = map[string]bool{
 	"updated_at":      true,
 	"deleted_at":      true,
 	"baseinfo_id":     true,
+	"audit_type":      true,
 	"audit_result":    true,
 	"audit_comment":   true,
 	"auditor_user_id": true,
