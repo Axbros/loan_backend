@@ -132,6 +132,11 @@ type LoanBaseinfoSimpleObjDetail struct {
 	LoanDays          int    `json:"loanDays"`          // 借款天数(单位：天)
 }
 
+type LoanBaseinfoWithAuditRecords struct {
+	LoanBaseinfoSimpleObjDetail
+	AuditRecords []*LoanAuditsObjDetail `json:"auditRecords"`
+}
+
 // CreateLoanBaseinfoReply only for api docs
 type CreateLoanBaseinfoReply struct {
 	Code int    `json:"code"` // return code
@@ -173,6 +178,11 @@ type DeleteLoanBaseinfosByIDsReply struct {
 
 // ListLoanBaseinfosRequest request params
 type ListLoanBaseinfosRequest struct {
+	query.Params
+}
+
+type ListLoanBaseinfosRequestWithAuditType struct {
+	AuditType int `json:"auditType" binding:"gte=0,lte=2"`
 	query.Params
 }
 

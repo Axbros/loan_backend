@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -26,7 +27,7 @@ type LoanBaseinfoDao interface {
 	UpdateByID(ctx context.Context, table *model.LoanBaseinfo) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanBaseinfo, error)
 	GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanBaseinfo, int64, error)
-
+	GetByColumnsWithAuditRecords(ctx context.Context, params *query.Params, auditType int) ([]*model.LoanBaseinfoWithAuditRecord, int64, error)
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanBaseinfo, error)
 	GetByIDs(ctx context.Context, ids []uint64) (map[uint64]*model.LoanBaseinfo, error)
@@ -285,6 +286,118 @@ func (d *loanBaseinfoDao) GetByColumns(ctx context.Context, params *query.Params
 	}
 
 	return records, total, err
+}
+
+// 定义 LoanUser 模型（如果项目中已有，无需重复定义，确保字段匹配）
+// type LoanUser struct {
+// 	ID       uint64 `gorm:"column:id;primaryKey" json:"id"`
+// 	Username string `gorm:"column:username;type:varchar(64)" json:"username"` // 真实姓名
+// 	// 其他字段（如手机号、创建时间等）按需保留
+// }
+
+func (d *loanBaseinfoDao) GetByColumnsWithAuditRecords(ctx context.Context, params *query.Params, auditType int) ([]*model.LoanBaseinfoWithAuditRecord, int64, error) {
+	// 1. 转换查询参数
+	queryStr, args, err := params.ConvertToGormConditions(query.WithWhitelistNames(model.LoanBaseinfoColumnNames))
+	if err != nil {
+		return nil, 0, fmt.Errorf("query params error: %w", err)
+	}
+
+	var total int64
+	const ignoreCountSortFlag = "ignore count"
+	if params.Sort != ignoreCountSortFlag {
+		err = d.db.WithContext(ctx).Model(&model.LoanBaseinfo{}).Where(queryStr, args...).Count(&total).Error
+		if err != nil {
+			return nil, 0, fmt.Errorf("count loan baseinfo error: %w", err)
+		}
+		if total == 0 {
+			return nil, total, nil
+		}
+	}
+
+	// 2. 查询贷款基础信息
+	records := []*model.LoanBaseinfo{}
+	order, limit, offset := params.ConvertToPage()
+	err = d.db.WithContext(ctx).
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Where(queryStr, args...).
+		Find(&records).Error
+	if err != nil {
+		return nil, 0, fmt.Errorf("query loan baseinfo list error: %w", err)
+	}
+
+	// 3. 批量查询审核记录
+	var baseinfoIDs []uint64
+	for _, record := range records {
+		if record.ID != 0 {
+			baseinfoIDs = append(baseinfoIDs, record.ID)
+		}
+	}
+
+	auditRecordMap := make(map[uint64][]*model.LoanAudits)
+	var allAuditorUserIDs []uint64 // 收集所有审核人员ID
+	if len(baseinfoIDs) > 0 {
+		var auditRecords []*model.LoanAudits
+		err = d.db.WithContext(ctx).
+			Model(&model.LoanAudits{}).
+			Where("baseinfo_id IN (?) AND audit_type = ?", baseinfoIDs, auditType).
+			Find(&auditRecords).Error
+		if err != nil {
+			return nil, 0, fmt.Errorf("batch query audit records error: %w", err)
+		}
+
+		// 构建审核记录映射表 + 收集审核人员ID
+		for _, ar := range auditRecords {
+			auditRecordMap[ar.BaseinfoID] = append(auditRecordMap[ar.BaseinfoID], ar)
+			// 收集非空的审核人员ID
+			if ar.AuditorUserID != 0 {
+				allAuditorUserIDs = append(allAuditorUserIDs, ar.AuditorUserID)
+			}
+		}
+	}
+
+	// ========== 核心新增：批量查询审核人员姓名 ==========
+	// 4. 批量查询 loan_users 表，获取审核人员姓名
+	auditorNameMap := make(map[uint64]string) // key: auditorUserID, value: username
+	if len(allAuditorUserIDs) > 0 {
+		var loanUsers []*model.LoanUsers
+		err = d.db.WithContext(ctx).
+			Model(&model.LoanUsers{}).
+			Select("id, username"). // 只查需要的字段，提升性能
+			Where("id IN (?)", allAuditorUserIDs).
+			Find(&loanUsers).Error
+		if err != nil {
+			return nil, 0, fmt.Errorf("batch query loan users error: %w", err)
+		}
+
+		// 构建 ID->姓名 映射表
+		for _, user := range loanUsers {
+			auditorNameMap[user.ID] = user.Username
+		}
+	}
+
+	// 5. 转换为结果结构体 + 替换审核人员姓名
+	results := make([]*model.LoanBaseinfoWithAuditRecord, 0, len(records))
+	for _, record := range records {
+		result := &model.LoanBaseinfoWithAuditRecord{
+			LoanBaseinfo: *record,
+			AuditRecords: auditRecordMap[record.ID],
+		}
+
+		// 遍历审核记录，补充 auditorName 字段
+		for _, auditRecord := range result.AuditRecords {
+			// 从映射表获取姓名，无则显示"未知"
+			auditRecord.AuditorName = auditorNameMap[auditRecord.AuditorUserID]
+			if auditRecord.AuditorName == "" {
+				auditRecord.AuditorName = "未知"
+			}
+		}
+
+		results = append(results, result)
+	}
+
+	return results, total, nil
 }
 
 // DeleteByIDs batch delete loanBaseinfo by ids

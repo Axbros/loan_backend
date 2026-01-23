@@ -32,11 +32,13 @@ type UpdateLoanAuditsByIDRequest struct {
 type LoanAuditsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 	// 审核记录ID
-	BaseinfoID    int        `json:"baseinfoID"`    // 关联申请单 loan_baseinfo.id
-	AuditResult   int        `json:"auditResult"`   // 审核结果：1通过 -1拒绝
-	AuditComment  string     `json:"auditComment"`  // 审核备注/原因
-	AuditorUserID int64      `json:"auditorUserID"` // 审核人员(loan_users.id)
-	CreatedAt     *time.Time `json:"createdAt"`     // 审核时间(即审核通过/拒绝时间)
+	BaseinfoID    int    `json:"baseinfoID"`    // 关联申请单 loan_baseinfo.id
+	AuditResult   int    `json:"auditResult"`   // 审核结果：1通过 -1拒绝
+	AuditComment  string `json:"auditComment"`  // 审核备注/原因
+	AuditorUserID int64  `json:"auditorUserID"` // 审核人员(loan_users.id)
+	// 新增字段：审核人员真实姓名（非数据库字段，仅用于返回）
+	AuditorName string     `json:"auditorName"` // gorm:"-" 表示不映射数据库字段
+	CreatedAt   *time.Time `json:"createdAt"`   // 审核时间(即审核通过/拒绝时间)
 }
 
 type LoanAuditDetail struct {

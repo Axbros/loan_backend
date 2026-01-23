@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-dev-frame/sponge/pkg/sgorm/query"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
@@ -34,6 +35,7 @@ type LoanBaseinfoHandler interface {
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
 	Review(c *gin.Context)
+	WithAuditRecordList(c *gin.Context)
 
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
@@ -81,6 +83,44 @@ const (
 	IncomeReviewType                    //回款审核
 
 )
+
+func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
+	form := &types.ListLoanBaseinfosRequestWithAuditType{}
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	ctx := middleware.WrapCtx(c)
+
+	baseColumn := query.Column{
+		Name:  "audit_status", // 首字母大写，匹配 Column 结构体定义
+		Exp:   "=",            // 显式指定表达式为等于
+		Value: PreReview,
+		Logic: "&", // 显式指定逻辑为 AND
+	}
+	form.Columns = append(form.Columns, baseColumn)
+
+	loanBaseinfos, total, err := h.iDao.GetByColumnsWithAuditRecords(ctx, &form.Params, form.AuditType)
+	if err != nil {
+		logger.Error("GetByColumns error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
+		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	data, err := convertSimpleLoanBaseinfosWithAuditRecord(loanBaseinfos)
+	if err != nil {
+		response.Error(c, ecode.ErrListLoanBaseinfo)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"records": data,
+		"total":   total,
+	})
+}
 
 // 初审 审核通过移交给财务审核放款
 func (h *loanBaseinfoHandler) Review(c *gin.Context) {
@@ -580,6 +620,17 @@ func convertSimpleLoanBaseinfo(loanBaseinfo *model.LoanBaseinfo) (*types.LoanBas
 	return data, nil
 }
 
+func convertSimpleLoanBaseinfoWithAuditRecord(loanBaseinfo *model.LoanBaseinfoWithAuditRecord) (*types.LoanBaseinfoWithAuditRecords, error) {
+	data := &types.LoanBaseinfoWithAuditRecords{}
+	err := copier.Copy(data, loanBaseinfo)
+	if err != nil {
+		return nil, err
+	}
+	// Note: if copier.Copy cannot assign a value to a field, add it here
+
+	return data, nil
+}
+
 func convertLoanBaseinfo(loanBaseinfo *model.LoanBaseinfo) (*types.LoanBaseinfoObjDetail, error) {
 	data := &types.LoanBaseinfoObjDetail{}
 	err := copier.Copy(data, loanBaseinfo)
@@ -607,6 +658,18 @@ func convertSimpleLoanBaseinfos(fromValues []*model.LoanBaseinfo) ([]*types.Loan
 	toValues := []*types.LoanBaseinfoSimpleObjDetail{}
 	for _, v := range fromValues {
 		data, err := convertSimpleLoanBaseinfo(v)
+		if err != nil {
+			return nil, err
+		}
+		toValues = append(toValues, data)
+	}
+	return toValues, nil
+}
+
+func convertSimpleLoanBaseinfosWithAuditRecord(fromValues []*model.LoanBaseinfoWithAuditRecord) ([]*types.LoanBaseinfoWithAuditRecords, error) {
+	toValues := []*types.LoanBaseinfoWithAuditRecords{}
+	for _, v := range fromValues {
+		data, err := convertSimpleLoanBaseinfoWithAuditRecord(v)
 		if err != nil {
 			return nil, err
 		}

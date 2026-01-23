@@ -13,6 +13,9 @@ type LoanAudits struct {
 	AuditComment  string `gorm:"column:audit_comment;type:varchar(255)" json:"auditComment"`           // 审核备注/原因
 	AuditorUserID uint64 `gorm:"column:auditor_user_id;type:bigint(20);not null" json:"auditorUserID"` // 审核人员(loan_users.id)
 	AuditType     int    `gorm:"column:audit_type;type:tinyint(4);not null" json:"auditType"`          // '审核类型(初审0、放款审核1、回款审核2)',
+
+	// 新增字段：审核人员真实姓名（非数据库字段，仅用于返回）
+	AuditorName string `gorm:"-" json:"auditorName"` // gorm:"-" 表示不映射数据库字段
 }
 
 // LoanAuditsColumnNames Whitelist for custom query fields to prevent sql injection attacks
