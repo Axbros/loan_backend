@@ -21,6 +21,8 @@ var (
 	ErrGetByConditionLoanAudits = errcode.NewError(loanAuditsBaseCode+7, "failed to get "+loanAuditsName+" details by conditions")
 	ErrListByIDsLoanAudits      = errcode.NewError(loanAuditsBaseCode+8, "failed to list by batch ids "+loanAuditsName)
 	ErrListByLastIDLoanAudits   = errcode.NewError(loanAuditsBaseCode+9, "failed to list by last id "+loanAuditsName)
+	InvalidAuditType            = errcode.NewError(loanAuditsBaseCode+10, "invalid auditType")
+	MFANotEnabled               = errcode.NewError(loanAuditsBaseCode+11, "mfa not enabled")
 
 	// error codes are globally unique, adding 1 to the previous error code
 )

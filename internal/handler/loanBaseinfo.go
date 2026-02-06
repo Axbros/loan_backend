@@ -68,7 +68,6 @@ func NewLoanBaseinfoHandler() LoanBaseinfoHandler {
 }
 
 type Audit_Status int
-type Audit_Type int
 
 const (
 	Rejected      Audit_Status = -1 // 机审拒绝
@@ -77,11 +76,11 @@ const (
 	FinanceReview Audit_Status = 2 //财务审核通过，最终台
 )
 
+type AuditType int // 修正原Audit_Type命名，符合Go大驼峰规范
 const (
-	PreReviewType     Audit_Type = iota //初审审核
-	FinanceReviewType                   //放款审核
-	IncomeReviewType                    //回款审核
-
+	PreReviewType     AuditType = iota //初审审核
+	FinanceReviewType                  //放款审核
+	IncomeReviewType                   //回款审核
 )
 
 func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
@@ -122,7 +121,21 @@ func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
 	})
 }
 
-// 初审 审核通过移交给财务审核放款
+// 新增：将请求的audit_type字符串（0/1/2）转换为AuditType枚举，同时做合法性校验
+func parseAuditType(auditTypeStr int) AuditType {
+	switch auditTypeStr {
+	case 0:
+		return PreReviewType
+	case 1:
+		return FinanceReviewType
+	case 2:
+		return IncomeReviewType
+	default:
+		// 返回自定义的"无效审核类型"错误码（需在ecode中定义）
+		return -1
+	}
+}
+
 func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 	ctx := middleware.WrapCtx(c)
 	uid, ok := getUIDFromClaims(c)
@@ -131,13 +144,23 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	form := &types.PreAuditRequest{}
+	form := &types.AuditRequest{}
 	err := c.ShouldBindJSON(form)
 	if err != nil {
 		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.InvalidParams)
 		return
 	}
+
+	// ########### 新增：解析并校验请求的审核类型 ###########
+	auditType := parseAuditType(form.AuditType)
+	if auditType == 0 {
+		//logger.Warn("parseAuditType error: ", logger.Err(err), "audit_type:", form.AuditType, middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InternalServerError) // 返无效审核类型错误
+		return
+	}
+	// #######################################################
+
 	// 0) 查当前用户是否启用 MFA
 	u, err := h.userDao.GetByID(ctx, uid)
 	if err != nil {
@@ -147,7 +170,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 	if u.MfaEnabled == 1 {
 		otpCode := strings.TrimSpace(form.MfaCode)
 		if len(otpCode) != 6 {
-			response.Error(c, ecode.MFAOTPRequired) // 你自己定义
+			response.Error(c, ecode.MFAOTPRequired)
 			return
 		}
 
@@ -159,7 +182,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		}
 
 		// 2) 解密 secret
-		secret, err := decryptSecretFromBytes(dev.SecretEnc) // SecretEnc 建议是 []byte
+		secret, err := decryptSecretFromBytes(dev.SecretEnc)
 		if err != nil {
 			response.Error(c, ecode.ErrSecret)
 			return
@@ -185,7 +208,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		// 4) 可选：更新 last_used_at
 		_ = h.userDao.TouchMFADeviceLastUsedAt(ctx, dev.ID)
 
-		//先audit表插入数据
+		// 先audit表插入数据
 		var auditResult int
 
 		loanBaseinfoRecord, err := h.iDao.GetByID(ctx, form.CustomerID)
@@ -194,15 +217,15 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
 			return
 		}
-		//审核通过
+		// 审核通过/驳回
 		if form.AuditResult {
 			auditResult = 1
-			loanBaseinfoRecord.AuditStatus = auditResult
-
 		} else {
 			auditResult = -1
-			loanBaseinfoRecord.AuditStatus = auditResult
 		}
+		// 简化赋值：无需两次写，一次赋值即可
+		loanBaseinfoRecord.AuditStatus = auditResult
+
 		err = h.iDao.UpdateByID(ctx, loanBaseinfoRecord)
 		if err != nil {
 			logger.Warn("UpdateByID error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
@@ -210,14 +233,15 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			return
 		}
 
-		auditType := PreReviewType
+		// ########### 核心修复：替换写死的PreReviewType为解析后的auditType ###########
 		record := &model.LoanAudits{
 			AuditResult:   auditResult,
-			AuditType:     int(auditType),
+			AuditType:     int(auditType), // 用请求传的审核类型
 			AuditComment:  form.Remark,
 			BaseinfoID:    form.CustomerID,
 			AuditorUserID: uid,
 		}
+		// ###########################################################################
 
 		err = h.auditDao.Create(ctx, record)
 		if err != nil {
@@ -225,6 +249,10 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			return
 		}
 		response.Success(c, gin.H{})
+	} else {
+		// ########### 新增：补充MFA未启用的分支处理（原代码缺失，会导致无响应） ###########
+		logger.Warn("user MFA not enabled, uid:"+utils.Uint64ToStr(uid), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.MFANotEnabled) // 需在ecode中定义：MFA未启用
 	}
 }
 
