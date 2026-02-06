@@ -36,16 +36,13 @@ type CreateLoanBaseinfoRequest struct {
 
 	HasCar int `json:"hasCar" binding:""` // 是否有車
 
-	ApplicationAmount int        `json:"applicationAmount" binding:""` // 申請金額
-	AuditStatus       int        `json:"auditStatus" binding:""`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	BankNo            string     `json:"bankNo" binding:""`            // 銀行卡號
-	ClientIP          string     `json:"clientIP" binding:""`          // 客户端IP地址(IPv4/IPv6)
-	ReferrerUserID    int64      `json:"referrerUserID" binding:""`    // 邀请人/分享人(loan_users.id)
-	RefCode           string     `json:"refCode" binding:""`           // 访问时携带的ref(冗余存储便于排查)
-	LoanDays          int        `json:"loanDays" binding:""`          // 借款天数(单位：天)
-	RiskListStatus    int        `json:"riskListStatus" binding:""`    // 名单状态：0正常 1白名单 2黑名单
-	RiskListReason    string     `json:"riskListReason" binding:""`    // 名单原因/来源说明
-	RiskListMarkedAt  *time.Time `json:"riskListMarkedAt" binding:""`  // 名单标记时间
+	ApplicationAmount int    `json:"applicationAmount" binding:""` // 申請金額
+	AuditStatus       int    `json:"auditStatus" binding:""`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
+	BankNo            string `json:"bankNo" binding:""`            // 銀行卡號
+	ClientIP          string `json:"clientIP" binding:""`          // 客户端IP地址(IPv4/IPv6)
+	ReferrerUserID    int64  `json:"referrerUserID" binding:""`    // 邀请人/分享人(loan_users.id)
+	RefCode           string `json:"refCode" binding:""`           // 访问时携带的ref(冗余存储便于排查)
+	LoanDays          int    `json:"loanDays" binding:""`          // 借款天数(单位：天)
 }
 
 // UpdateLoanBaseinfoByIDRequest request params
@@ -69,16 +66,13 @@ type UpdateLoanBaseinfoByIDRequest struct {
 
 	HasCar int `json:"hasCar" binding:""` // 是否有車
 
-	ApplicationAmount int        `json:"applicationAmount" binding:""` // 申請金額
-	AuditStatus       int        `json:"auditStatus" binding:""`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	BankNo            string     `json:"bankNo" binding:""`            // 銀行卡號
-	ClientIP          string     `json:"clientIP" binding:""`          // 客户端IP地址(IPv4/IPv6)
-	ReferrerUserID    int64      `json:"referrerUserID" binding:""`    // 邀请人/分享人(loan_users.id)
-	RefCode           string     `json:"refCode" binding:""`           // 访问时携带的ref(冗余存储便于排查)
-	LoanDays          int        `json:"loanDays" binding:""`          // 借款天数(单位：天)
-	RiskListStatus    int        `json:"riskListStatus" binding:""`    // 名单状态：0正常 1白名单 2黑名单
-	RiskListReason    string     `json:"riskListReason" binding:""`    // 名单原因/来源说明
-	RiskListMarkedAt  *time.Time `json:"riskListMarkedAt" binding:""`  // 名单标记时间
+	ApplicationAmount int    `json:"applicationAmount" binding:""` // 申請金額
+	AuditStatus       int    `json:"auditStatus" binding:""`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
+	BankNo            string `json:"bankNo" binding:""`            // 銀行卡號
+	ClientIP          string `json:"clientIP" binding:""`          // 客户端IP地址(IPv4/IPv6)
+	ReferrerUserID    int64  `json:"referrerUserID" binding:""`    // 邀请人/分享人(loan_users.id)
+	RefCode           string `json:"refCode" binding:""`           // 访问时携带的ref(冗余存储便于排查)
+	LoanDays          int    `json:"loanDays" binding:""`          // 借款天数(单位：天)
 }
 
 // LoanBaseinfoObjDetail detail
@@ -102,19 +96,23 @@ type LoanBaseinfoObjDetail struct {
 
 	HasCar int `json:"hasCar"` // 是否有車
 
-	ApplicationAmount int                 `json:"applicationAmount"` // 申請金額
-	AuditStatus       int                 `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	BankNo            string              `json:"bankNo"`            // 銀行卡號
-	ClientIP          string              `json:"clientIP"`          // 客户端IP地址(IPv4/IPv6)
-	CreatedAt         *time.Time          `json:"createdAt"`
-	UpdatedAt         *time.Time          `json:"updatedAt"`
-	ReferrerUserID    int64               `json:"referrerUserID"`   // 邀请人/分享人(loan_users.id)
-	RefCode           string              `json:"refCode"`          // 访问时携带的ref(冗余存储便于排查)
-	LoanDays          int                 `json:"loanDays"`         // 借款天数(单位：天)
-	RiskListStatus    int                 `json:"riskListStatus"`   // 名单状态：0正常 1白名单 2黑名单
-	RiskListReason    string              `json:"riskListReason"`   // 名单原因/来源说明
-	RiskListMarkedAt  *time.Time          `json:"riskListMarkedAt"` // 名单标记时间
-	Files             map[string][]string `json:"files"`
+	ApplicationAmount int        `json:"applicationAmount"` // 申請金額
+	AuditStatus       int        `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
+	BankNo            string     `json:"bankNo"`            // 銀行卡號
+	ClientIP          string     `json:"clientIP"`          // 客户端IP地址(IPv4/IPv6)
+	CreatedAt         *time.Time `json:"createdAt"`
+	UpdatedAt         *time.Time `json:"updatedAt"`
+	ReferrerUserID    int64      `json:"referrerUserID"`   // 邀请人/分享人(loan_users.id)
+	RefCode           string     `json:"refCode"`          // 访问时携带的ref(冗余存储便于排查)
+	LoanDays          int        `json:"loanDays"`         // 借款天数(单位：天)
+	RiskListStatus    int        `json:"riskListStatus"`   // 名单状态：0正常 1白名单 2黑名单
+	RiskListReason    string     `json:"riskListReason"`   // 名单原因/来源说明
+	RiskListMarkedAt  *time.Time `json:"riskListMarkedAt"` // 名单标记时间
+	// --- 新增：风险记录的操作人相关字段（核心调整）---
+	RiskOperateID   uint64 ` json:"riskOperateID"`   // 风险记录操作人ID（loan_risk_customer.created_by）
+	RiskOperateName string ` json:"riskOperateName"` // 风险记录操作人用户名（loan_users.username）
+
+	Files map[string][]string `json:"files"`
 }
 
 type LoanBaseinfoSimpleObjDetail struct {

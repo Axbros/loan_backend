@@ -59,6 +59,12 @@ type LoanUsersObjDetail struct {
 	ShareCode    string     `json:"shareCode"` // 分享邀请码(用于生成分享链接，建议唯一)
 }
 
+type LoanUsersObjSimple struct {
+	ID uint64 `json:"id"` // convert to uint64 id
+
+	Username string `json:"username"`
+}
+
 // CreateLoanUsersReply only for api docs
 type CreateLoanUsersReply struct {
 	Code int    `json:"code"` // return code
