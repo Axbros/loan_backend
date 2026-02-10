@@ -13,7 +13,7 @@ func init() {
 }
 
 func loanPaymentChannelsRouter(group *gin.RouterGroup, h handler.LoanPaymentChannelsHandler) {
-	g := group.Group("/loanPaymentChannels")
+	g := group.Group("/payment-channels")
 
 	// JWT authentication reference: https://go-sponge.com/component/transport/gin.html#jwt-authorization-middleware
 

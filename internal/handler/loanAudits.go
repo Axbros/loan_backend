@@ -60,14 +60,14 @@ func (h *loanAuditsHandler) Detail(c *gin.Context) {
 		return
 	}
 	ctx := middleware.WrapCtx(c)
-	records, err := h.iDao.GetByBaseinfoID(ctx, form.BaseinfoID)
+	record, err := h.iDao.GetByBaseinfoID(ctx, form.BaseinfoID, form.AuditType)
 	if err != nil {
 		logger.Warn("GetByBaseinfoID error: ", logger.Err(err))
 		response.Error(c, ecode.InternalServerError)
 		return
 	}
 	response.Success(c, gin.H{
-		"records": records,
+		"record": record,
 	})
 
 }

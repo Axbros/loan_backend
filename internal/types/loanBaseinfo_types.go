@@ -181,7 +181,6 @@ type ListLoanBaseinfosRequest struct {
 }
 
 type ListLoanBaseinfosRequestWithAuditType struct {
-	AuditType int `json:"auditType" binding:"gte=0,lte=2"`
 	query.Params
 }
 

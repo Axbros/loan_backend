@@ -93,6 +93,7 @@ type DeleteLoanAuditssByIDsReply struct {
 }
 
 type RequestLoanAuditsDetail struct {
+	AuditType  int    `json:"auditType"`
 	BaseinfoID uint64 `json:"baseinfoID" binding:""`
 }
 

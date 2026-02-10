@@ -27,7 +27,7 @@ type LoanBaseinfoDao interface {
 	UpdateByID(ctx context.Context, table *model.LoanBaseinfo) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanBaseinfo, error)
 	GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanBaseinfo, int64, error)
-	GetByColumnsWithAuditRecords(ctx context.Context, params *query.Params, auditType int) ([]*model.LoanBaseinfoWithAuditRecord, int64, error)
+	GetByColumnsWithAuditRecords(ctx context.Context, params *query.Params) ([]*model.LoanBaseinfoWithAuditRecord, int64, error)
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanBaseinfo, error)
 	GetByIDs(ctx context.Context, ids []uint64) (map[uint64]*model.LoanBaseinfo, error)
@@ -302,7 +302,7 @@ func (d *loanBaseinfoDao) GetByColumns(ctx context.Context, params *query.Params
 // 	// 其他字段（如手机号、创建时间等）按需保留
 // }
 
-func (d *loanBaseinfoDao) GetByColumnsWithAuditRecords(ctx context.Context, params *query.Params, auditType int) ([]*model.LoanBaseinfoWithAuditRecord, int64, error) {
+func (d *loanBaseinfoDao) GetByColumnsWithAuditRecords(ctx context.Context, params *query.Params) ([]*model.LoanBaseinfoWithAuditRecord, int64, error) {
 	// 1. 转换查询参数
 	queryStr, args, err := params.ConvertToGormConditions(query.WithWhitelistNames(model.LoanBaseinfoColumnNames))
 	if err != nil {
@@ -348,7 +348,7 @@ func (d *loanBaseinfoDao) GetByColumnsWithAuditRecords(ctx context.Context, para
 		var auditRecords []*model.LoanAudits
 		err = d.db.WithContext(ctx).
 			Model(&model.LoanAudits{}).
-			Where("baseinfo_id IN (?) AND audit_type = ?", baseinfoIDs, auditType).
+			Where("baseinfo_id IN (?) and audit_result = 1", baseinfoIDs). //只提取审核成功的
 			Find(&auditRecords).Error
 		if err != nil {
 			return nil, 0, fmt.Errorf("batch query audit records error: %w", err)
@@ -387,6 +387,10 @@ func (d *loanBaseinfoDao) GetByColumnsWithAuditRecords(ctx context.Context, para
 	// 5. 转换为结果结构体 + 替换审核人员姓名
 	results := make([]*model.LoanBaseinfoWithAuditRecord, 0, len(records))
 	for _, record := range records {
+		if auditRecordMap[record.ID] == nil {
+			//表示审核拒绝的
+			continue
+		}
 		result := &model.LoanBaseinfoWithAuditRecord{
 			LoanBaseinfo: *record,
 			AuditRecords: auditRecordMap[record.ID],

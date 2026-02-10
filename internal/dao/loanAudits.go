@@ -38,7 +38,7 @@ type LoanAuditsDao interface {
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanAudits) error
 
 	ListByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*model.LoanAudits, error)
-	GetByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*types.LoanAuditDetail, error)
+	GetByBaseinfoID(ctx context.Context, baseinfoID uint64, auditType int) (*types.LoanAuditDetail, error)
 }
 
 type loanAuditsDao struct {
@@ -59,16 +59,29 @@ func NewLoanAuditsDao(db *gorm.DB, xCache cache.LoanAuditsCache) LoanAuditsDao {
 	}
 }
 
-func (d *loanAuditsDao) GetByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*types.LoanAuditDetail, error) {
-	var auditList []*types.LoanAuditDetail
-	// 核心查询部分（替换方式1中的第3步）
+func (d *loanAuditsDao) GetByBaseinfoID(ctx context.Context, baseinfoID uint64, auditType int) (*types.LoanAuditDetail, error) {
+	// 关键修改1：初始化具体的结构体实例，而非 nil 指针
+	auditRecord := &types.LoanAuditDetail{}
+	// 核心查询部分
 	err := d.db.WithContext(ctx).Model(&model.LoanAudits{}).
 		Select("a.*, u.username as auditor_username").
 		Joins("INNER JOIN loan_users u ON a.auditor_user_id = u.id").
-		Where("a.baseinfo_id = ?", baseinfoID).
-		Table("loan_audits a"). // 给 loan_audits 起别名 a
-		Find(&auditList).Error
-	return auditList, err
+		Where("a.baseinfo_id =? and a.audit_type = ?", baseinfoID, auditType).
+		Table("loan_audits a").  // 给 loan_audits 起别名 a
+		First(auditRecord).Error // 关键修改2：用 First 替代 Find，查询单条记录
+
+	// 关键修改3：处理 "记录未找到" 的场景
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 查询成功但无数据，返回 nil 和 nil
+			return nil, nil
+		}
+		// 其他查询错误，返回 nil 和具体错误
+		return nil, err
+	}
+
+	// 有数据时返回结构体指针和 nil 错误
+	return auditRecord, nil
 }
 
 func (d *loanAuditsDao) deleteCache(ctx context.Context, id uint64) error {

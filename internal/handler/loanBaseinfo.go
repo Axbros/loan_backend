@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/go-dev-frame/sponge/pkg/sgorm/query"
 	"github.com/pquerna/otp"
 	"github.com/pquerna/otp/totp"
 
@@ -92,17 +91,13 @@ func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
 		return
 	}
 
+	if len(form.Columns) == 0 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
 	ctx := middleware.WrapCtx(c)
 
-	baseColumn := query.Column{
-		Name:  "audit_status", // 首字母大写，匹配 Column 结构体定义
-		Exp:   "=",            // 显式指定表达式为等于
-		Value: PreReview,
-		Logic: "&", // 显式指定逻辑为 AND
-	}
-	form.Columns = append(form.Columns, baseColumn)
-
-	loanBaseinfos, total, err := h.iDao.GetByColumnsWithAuditRecords(ctx, &form.Params, form.AuditType)
+	loanBaseinfos, total, err := h.iDao.GetByColumnsWithAuditRecords(ctx, &form.Params)
 	if err != nil {
 		logger.Error("GetByColumns error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
 		response.Output(c, ecode.InternalServerError.ToHTTPCode())
@@ -154,7 +149,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 
 	// ########### 新增：解析并校验请求的审核类型 ###########
 	auditType := parseAuditType(form.AuditType)
-	if auditType == 0 {
+	if auditType == -1 {
 		//logger.Warn("parseAuditType error: ", logger.Err(err), "audit_type:", form.AuditType, middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.InternalServerError) // 返无效审核类型错误
 		return
@@ -217,14 +212,16 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
 			return
 		}
+
 		// 审核通过/驳回
 		if form.AuditResult {
 			auditResult = 1
+			loanBaseinfoRecord.AuditStatus = form.AuditType
 		} else {
 			auditResult = -1
+			loanBaseinfoRecord.AuditStatus = -1
 		}
-		// 简化赋值：无需两次写，一次赋值即可
-		loanBaseinfoRecord.AuditStatus = auditResult
+		// 简化赋值：无需两次写，一次赋值即可 AuditStatus作为流程阶段吧
 
 		err = h.iDao.UpdateByID(ctx, loanBaseinfoRecord)
 		if err != nil {
