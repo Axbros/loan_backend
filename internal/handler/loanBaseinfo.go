@@ -131,11 +131,11 @@ func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
 // 新增：将请求的audit_type字符串（0/1/2）转换为AuditType枚举，同时做合法性校验
 func parseAuditType(auditTypeStr int) AuditType {
 	switch auditTypeStr {
-	case 0:
-		return PreReviewType
 	case 1:
-		return FinanceReviewType
+		return PreReviewType
 	case 2:
+		return FinanceReviewType
+	case 3:
 		return IncomeReviewType
 	default:
 		// 返回自定义的"无效审核类型"错误码（需在ecode中定义）
@@ -225,7 +225,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			return
 		}
 
-		if form.AuditType == int(FinanceReviewType) {
+		if form.AuditType == FinanceReviewType {
 			if form.PaymentChannelID == 0 {
 				response.Error(c, ecode.ErrPaymentChannel)
 				return

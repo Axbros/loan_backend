@@ -28,6 +28,7 @@ func loanDisbursementsRouter(group *gin.RouterGroup, h handler.LoanDisbursements
 	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanDisbursements/:id
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanDisbursements/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanDisbursements/list
+	g.POST("/overview", h.Overview)
 
 	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanDisbursements/delete/ids
 	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanDisbursements/condition

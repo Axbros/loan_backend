@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/shopspring/decimal"
 	"time"
 
 	"github.com/go-dev-frame/sponge/pkg/sgorm/query"
@@ -108,6 +109,28 @@ type ListLoanDisbursementssRequest struct {
 	query.Params
 }
 
+type PageRequest struct {
+	Page  int `json:"page" form:"page" binding:"gte=0"`   // 页码（从0开始）
+	Limit int `json:"limit" form:"limit" binding:"gte=1"` // 页大小（最小1）
+}
+type LoanDisbursementsCondition struct {
+	Name       string `json:"name" form:"name"`                                                       // 姓名（loan_baseinfo.first_name）
+	Age        *int   `json:"age" form:"age" binding:"omitempty,gte=0"`                               // 年龄（可选，非0）
+	Gender     string `json:"gender" form:"gender" binding:"omitempty,oneof=M W"`                     // 性别（M/W）
+	IDType     string `json:"idType" form:"idType" binding:"omitempty,oneof=ID_CARD PASSPORT DRIVER"` // 证件类型
+	IDNo       string `json:"idNo" form:"idNo"`                                                       // 证件号码
+	LoanAmount *int64 `json:"loanAmount" form:"loanAmount" binding:"omitempty,gte=0"`                 // 申请金额
+}
+type ListLoanDisbursementsOverviewRequest struct {
+	PageRequest                             // 嵌入分页参数（继承 Page/Limit 字段）
+	Condition   *LoanDisbursementsCondition `json:"condition" form:"condition"`
+}
+
+type ListLoanDisbursementsOverviewResponse struct {
+	Total int64                `json:"total"` // 总条数
+	List  []*LoanDisbursedList `json:"list"`  // 分页数据列表
+}
+
 // ListLoanDisbursementssReply only for api docs
 type ListLoanDisbursementssReply struct {
 	Code int    `json:"code"` // return code
@@ -148,4 +171,30 @@ type ListLoanDisbursementssByIDsReply struct {
 	Data struct {
 		LoanDisbursementss []LoanDisbursementsObjDetail `json:"loanDisbursementss"`
 	} `json:"data"` // return data
+}
+
+// DisbursementWithChannel 放款记录+支付渠道关联结果
+type DisbursementWithChannel struct {
+	ID             int64            `json:"id"`              // 放款记录ID
+	DisburseAmount *decimal.Decimal `json:"disburse_amount"` // 放款金额
+	NetAmount      *decimal.Decimal `json:"net_amount"`      // 净金额
+	Status         int              `json:"status"`          // 放款状态
+	PayoutOrderNo  string           `json:"payout_order_no"` // 放款订单号
+	DisbursedAt    *time.Time       `json:"disbursed_at"`
+	ChannelName    string           `json:"channel_name"` // 支付渠道名称（对应 c.name）
+}
+
+type LoanDisbursedList struct {
+	ID                int64            `json:"id" gorm:"column:id"`                                 // 基础信息ID（b.id）
+	FirstName         string           `json:"first_name" gorm:"column:first_name"`                 // 姓名
+	Age               int              `json:"age" gorm:"column:age"`                               // 年龄
+	Gender            string           `json:"gender" gorm:"column:gender"`                         // 性别（1=男/2=女等）
+	IDType            string           `json:"id_type" gorm:"column:id_type"`                       // 证件类型
+	IDNumber          string           `json:"id_number" gorm:"column:id_number"`                   // 证件号码
+	ApplicationAmount *decimal.Decimal `json:"application_amount" gorm:"column:application_amount"` // 申请金额
+	NetAmount         *decimal.Decimal `json:"net_amount" gorm:"column:net_amount"`                 // 净放款金额
+	LoanDays          int              `json:"loan_days" gorm:"column:loan_days"`                   // 借款天数
+	ChannelName       string           `json:"channel_name" gorm:"column:name"`                     // 支付渠道名称（c.name）
+	PayoutOrderNo     string           `json:"payout_order_no" gorm:"column:payout_order_no"`       // 放款订单号
+	PayoutFeeRate     *decimal.Decimal `json:"payout_fee_rate" gorm:"column:payout_fee_rate"`       // 渠道费率
 }

@@ -29,6 +29,7 @@ type LoanDisbursementsHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
+	Overview(c *gin.Context)
 
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
@@ -55,6 +56,38 @@ func NewLoanDisbursementsHandler() LoanDisbursementsHandler {
 		),
 		auditDao: dao.NewLoanAuditsDao(database.GetDB(), cache.NewLoanAuditsCache(database.GetCacheType())),
 	}
+}
+
+func (h *loanDisbursementsHandler) Overview(c *gin.Context) {
+	// 1. 绑定并校验前端请求参数
+	form := &types.ListLoanDisbursementsOverviewRequest{}
+	err := c.ShouldBind(form)
+	if err != nil {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	// 2. 包装上下文并调用DAO层查询
+	ctx := middleware.WrapCtx(c)
+	result, err := h.iDao.GetOverviewList(ctx, form)
+
+	// 3. 处理查询异常
+	if err != nil {
+		logger.Warn("查询放款概览列表失败", logger.Err(err))
+		response.Error(c, ecode.ErrGetByConditionLoanDisbursements)
+		return
+	}
+
+	// 4. 核心修正：result为nil时初始化空结构体（保证list是空数组）
+	if result == nil || result.Total == 0 {
+		result = &types.ListLoanDisbursementsOverviewResponse{
+			Total: 0,                            // 总条数为0
+			List:  []*types.LoanDisbursedList{}, // 空数组，而非nil
+		}
+	}
+
+	// 5. 返回标准化结果（records包含total和空/有数据的list）
+	response.Success(c, result)
 }
 
 // Create a new loanDisbursements

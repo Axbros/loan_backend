@@ -39,6 +39,7 @@ type LoanAuditsDao interface {
 
 	ListByBaseinfoID(ctx context.Context, baseinfoID uint64) ([]*model.LoanAudits, error)
 	GetByBaseinfoID(ctx context.Context, baseinfoID uint64, auditType int) (*types.LoanAuditDetail, error)
+	GetDisbursmentsByBaseInfoID(ctx context.Context, baseInfoID uint64) (*types.DisbursementWithChannel, error)
 }
 
 type loanAuditsDao struct {
@@ -57,6 +58,43 @@ func NewLoanAuditsDao(db *gorm.DB, xCache cache.LoanAuditsCache) LoanAuditsDao {
 		cache: xCache,
 		sfg:   new(singleflight.Group),
 	}
+}
+
+func (d *loanAuditsDao) GetDisbursmentsByBaseInfoID(ctx context.Context, baseInfoID uint64) (*types.DisbursementWithChannel, error) {
+	var result types.DisbursementWithChannel
+	// 执行你需要的关联查询SQL
+	sqlStr := `
+        SELECT 
+            d.id,
+            d.disburse_amount,
+            d.net_amount,
+            d.status,
+            d.payout_order_no,
+            d.disbursed_at,
+            c.name AS channel_name
+        FROM 
+            loan_disbursements d
+        INNER JOIN 
+            loan_payment_channels c ON d.payout_channel_id = c.id
+        WHERE 
+            d.baseinfo_id = ?;
+    `
+
+	// 执行原生SQL并扫描结果
+	err := d.db.WithContext(ctx).Raw(sqlStr, baseInfoID).Scan(&result).Error
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			logger.Warn("查询放款记录及渠道信息失败",
+				logger.String("reason", "未找到记录"),
+				logger.Uint64("baseinfo_id", baseInfoID),
+			)
+			return nil, nil // 无数据返回nil，上层处理
+		}
+		logger.Error("关联查询放款记录+渠道失败", logger.Err(err))
+		return nil, err
+	}
+
+	return &result, nil
 }
 
 func (d *loanAuditsDao) GetByBaseinfoID(ctx context.Context, baseinfoID uint64, auditType int) (*types.LoanAuditDetail, error) {

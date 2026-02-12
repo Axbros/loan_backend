@@ -3,6 +3,8 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -35,6 +37,8 @@ type LoanDisbursementsDao interface {
 	CreateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanDisbursements) (uint64, error)
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanDisbursements) error
+
+	GetOverviewList(ctx context.Context, req *types.ListLoanDisbursementsOverviewRequest) (*types.ListLoanDisbursementsOverviewResponse, error)
 }
 
 type loanDisbursementsDao struct {
@@ -65,6 +69,117 @@ func (d *loanDisbursementsDao) deleteCache(ctx context.Context, id uint64) error
 // Create a new loanDisbursements, insert the record and the id value is written back to the table
 func (d *loanDisbursementsDao) Create(ctx context.Context, table *model.LoanDisbursements) error {
 	return d.db.WithContext(ctx).Create(table).Error
+}
+
+func (d *loanDisbursementsDao) GetOverviewList(
+	ctx context.Context,
+	req *types.ListLoanDisbursementsOverviewRequest) (*types.ListLoanDisbursementsOverviewResponse, error) {
+	// 1. 定义返回结果
+	var (
+		list  []*types.LoanDisbursedList
+		total int64
+
+		// 存储动态条件和参数
+		whereConditions []string
+		whereArgs       []interface{}
+	)
+
+	// -------------------------- 拼接 loan_baseinfo 表的过滤条件 --------------------------
+	if req.Condition != nil {
+		// 1. 姓名：模糊查询
+		if req.Condition.Name != "" {
+			whereConditions = append(whereConditions, "b.first_name LIKE ?")
+			whereArgs = append(whereArgs, "%"+req.Condition.Name+"%")
+		}
+
+		// 2. 年龄：精确匹配
+		if req.Condition.Age != nil && *req.Condition.Age > 0 {
+			whereConditions = append(whereConditions, "b.age = ?")
+			whereArgs = append(whereArgs, *req.Condition.Age)
+		}
+
+		// 3. 性别：精确匹配（M/W）
+		if req.Condition.Gender != "" {
+			whereConditions = append(whereConditions, "b.gender = ?")
+			whereArgs = append(whereArgs, req.Condition.Gender)
+		}
+
+		// 4. 证件类型：精确匹配
+		if req.Condition.IDType != "" {
+			whereConditions = append(whereConditions, "b.id_type = ?")
+			whereArgs = append(whereArgs, req.Condition.IDType)
+		}
+
+		// 5. 证件号码：精确匹配
+		if req.Condition.IDNo != "" {
+			whereConditions = append(whereConditions, "b.id_number = ?")
+			whereArgs = append(whereArgs, req.Condition.IDNo)
+		}
+
+		// 6. 申请金额：精确匹配
+		if req.Condition.LoanAmount != nil && *req.Condition.LoanAmount > 0 {
+			whereConditions = append(whereConditions, "b.application_amount = ?")
+			whereArgs = append(whereArgs, *req.Condition.LoanAmount)
+		}
+	}
+
+	// -------------------------- 构造 SQL --------------------------
+	baseSQL := `
+        FROM
+            loan_disbursements d
+            INNER JOIN loan_baseinfo b ON d.baseinfo_id = b.id
+            INNER JOIN loan_payment_channels c ON d.payout_channel_id = c.id
+    `
+
+	// 拼接 WHERE 子句
+	whereSQL := ""
+	if len(whereConditions) > 0 {
+		whereSQL = " WHERE " + strings.Join(whereConditions, " AND ")
+	}
+
+	// 1. 查询总条数
+	countSQL := "SELECT COUNT(*) " + baseSQL + whereSQL
+	err := d.db.WithContext(ctx).Raw(countSQL, whereArgs...).Scan(&total).Error
+	if err != nil {
+		logger.Error("查询放款概览总条数失败", logger.Err(err), logger.Any("req.Condition", req.Condition))
+		return nil, err
+	}
+
+	// 2. 计算分页偏移量
+	offset := req.Page * req.Limit
+
+	// 3. 分页查询列表
+	querySQL := `
+        SELECT
+            b.id,
+            b.first_name,
+            b.age,
+            b.gender,
+            b.id_type,
+            b.id_number,
+            b.application_amount,
+            d.net_amount,
+            b.loan_days,
+            c.name,
+            d.payout_order_no,
+            c.payout_fee_rate
+    ` + baseSQL + whereSQL + " LIMIT ? OFFSET ?"
+
+	// 合并分页参数
+	queryArgs := append(whereArgs, req.Limit, offset)
+
+	// 执行查询
+	err = d.db.WithContext(ctx).Raw(querySQL, queryArgs...).Scan(&list).Error
+	if err != nil {
+		logger.Error("分页查询放款概览列表失败", logger.Err(err), logger.Any("pageReq", req), logger.Any("filter", req.Condition))
+		return nil, err
+	}
+
+	// -------------------------- 返回结果 --------------------------
+	return &types.ListLoanDisbursementsOverviewResponse{
+		Total: total,
+		List:  list,
+	}, nil
 }
 
 // DeleteByID delete a loanDisbursements by id
