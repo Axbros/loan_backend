@@ -2,6 +2,8 @@ package handler
 
 import (
 	"errors"
+	"fmt"
+	"github.com/shopspring/decimal"
 	"math"
 	"strings"
 	"time"
@@ -43,9 +45,11 @@ type LoanBaseinfoHandler interface {
 }
 
 type loanBaseinfoHandler struct {
-	iDao     dao.LoanBaseinfoDao
-	auditDao dao.LoanAuditsDao
-	userDao  dao.LoanUsersDao
+	iDao           dao.LoanBaseinfoDao
+	auditDao       dao.LoanAuditsDao
+	userDao        dao.LoanUsersDao
+	channelDao     dao.LoanPaymentChannelsDao
+	disbursmentDao dao.LoanDisbursementsDao
 }
 
 // NewLoanBaseinfoHandler creating the handler interface
@@ -63,6 +67,14 @@ func NewLoanBaseinfoHandler() LoanBaseinfoHandler {
 			database.GetDB(),
 			cache.NewLoanUsersCache(database.GetCacheType()),
 		),
+		channelDao: dao.NewLoanPaymentChannelsDao(
+			database.GetDB(),
+			cache.NewLoanPaymentChannelsCache(database.GetCacheType()),
+		),
+		disbursmentDao: dao.NewLoanDisbursementsDao(
+			database.GetDB(),
+			cache.NewLoanDisbursementsCache(database.GetCacheType()),
+		),
 	}
 }
 
@@ -77,9 +89,9 @@ const (
 
 type AuditType int // 修正原Audit_Type命名，符合Go大驼峰规范
 const (
-	PreReviewType     AuditType = iota //初审审核
-	FinanceReviewType                  //放款审核
-	IncomeReviewType                   //回款审核
+	PreReviewType     = 1 //初审审核
+	FinanceReviewType = 2 //放款审核
+	IncomeReviewType  = 3 //回款审核
 )
 
 func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
@@ -211,6 +223,54 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			logger.Warn("GetByID error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
 			response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
 			return
+		}
+
+		if form.AuditType == int(FinanceReviewType) {
+			if form.PaymentChannelID == 0 {
+				response.Error(c, ecode.ErrPaymentChannel)
+				return
+			}
+			paymentChannelRecord, err := h.channelDao.GetByID(ctx, form.PaymentChannelID)
+			if err != nil {
+				response.Error(c, ecode.ErrGetByIDLoanPaymentChannels)
+				return
+			}
+
+			var feeRate decimal.Decimal
+			if paymentChannelRecord.PayoutFeeRate != nil {
+				feeRate = *paymentChannelRecord.PayoutFeeRate
+			} else {
+				// 如果费率为空，默认设为 0
+				feeRate = decimal.Zero
+			}
+			// 计算 NetAmount：申请金额 * (1 - 支付费率)
+			// 2. 转换所有参与运算的值为 decimal 类型，保证类型一致
+			one := decimal.NewFromInt(1)                              // 整数 1 转 decimal
+			applicationAmount := loanBaseinfoRecord.ApplicationAmount // int 转 decimal
+
+			// 3. 分步计算净金额：申请金额 * (1 - 支付费率)
+			discountRate := one.Sub(feeRate)                 // 计算 1 - 费率
+			netAmount := applicationAmount.Mul(discountRate) // 申请金额 * 折扣率
+
+			//根据 渠道 写入放款表
+			now := getCurrentTime()
+			disbursmentRecord := &model.LoanDisbursements{
+				BaseinfoID:           form.CustomerID,
+				DisburseAmount:       loanBaseinfoRecord.ApplicationAmount,
+				NetAmount:            &netAmount,
+				Status:               1,
+				SourceReferrerUserID: loanBaseinfoRecord.ReferrerUserID,
+				AuditorUserID:        uid,
+				PayoutChannelID:      form.PaymentChannelID,
+				AuditedAt:            now,
+				DisbursedAt:          now,
+				PayoutOrderNo:        generateOrderNo(),
+			}
+			err = h.disbursmentDao.Create(ctx, disbursmentRecord)
+			if err != nil {
+				response.Error(c, ecode.ErrCreateLoanDisbursements)
+				return
+			}
 		}
 
 		// 审核通过/驳回
@@ -701,4 +761,24 @@ func convertSimpleLoanBaseinfosWithAuditRecord(fromValues []*model.LoanBaseinfoW
 		toValues = append(toValues, data)
 	}
 	return toValues, nil
+}
+
+func getCurrentTime() *time.Time {
+	now := time.Now()
+	return &now
+}
+
+func generateOrderNo() string {
+	// 1. 获取当前时间，格式化为 年月日时分秒（例如：20260212153045）
+	now := time.Now()
+	timeStr := now.Format("20060102150405") // Go的时间格式化是固定参考时间：2006-01-02 15:04:05
+
+	// 2. 生成3位随机数（避免同一秒内生成多个订单号导致重复）
+	// 这里用纳秒取模，简单且无需额外依赖，适合单机场景
+	randomNum := now.Nanosecond() % 1000 // 取纳秒的后3位，范围 0-999
+
+	// 3. 拼接订单号：PO + 时间字符串 + 补零后的3位随机数
+	orderNo := fmt.Sprintf("PO%s%03d", timeStr, randomNum)
+
+	return orderNo
 }

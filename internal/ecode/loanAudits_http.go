@@ -23,6 +23,7 @@ var (
 	ErrListByLastIDLoanAudits   = errcode.NewError(loanAuditsBaseCode+9, "failed to list by last id "+loanAuditsName)
 	InvalidAuditType            = errcode.NewError(loanAuditsBaseCode+10, "invalid auditType")
 	MFANotEnabled               = errcode.NewError(loanAuditsBaseCode+11, "mfa not enabled")
+	ErrPaymentChannel           = errcode.NewError(loanAuditsBaseCode+12, "no payment channel")
 
 	// error codes are globally unique, adding 1 to the previous error code
 )

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"github.com/shopspring/decimal"
 	"time"
 
 	"github.com/go-dev-frame/sponge/pkg/sgorm/query"
@@ -10,11 +11,12 @@ var _ time.Time
 
 // Tip: suggested filling in the binding rules https://github.com/go-playground/validator in request struct fields tag.
 type AuditRequest struct {
-	AuditType   int    `json:"auditType"` // 0初审 1放款审核
-	CustomerID  uint64 `json:"customerID"`
-	AuditResult bool   `json:"auditResult"`
-	Remark      string `json:"remark"`
-	MfaCode     string `json:"mfaCode"`
+	AuditType        int    `json:"auditType"` // 0初审 1放款审核
+	CustomerID       uint64 `json:"customerID"`
+	AuditResult      bool   `json:"auditResult"`
+	Remark           string `json:"remark"`
+	MfaCode          string `json:"mfaCode"`
+	PaymentChannelID uint64 `json:"paymentChannelID"`
 }
 
 // CreateLoanBaseinfoRequest request params
@@ -97,18 +99,18 @@ type LoanBaseinfoObjDetail struct {
 
 	HasCar int `json:"hasCar"` // 是否有車
 
-	ApplicationAmount int        `json:"applicationAmount"` // 申請金額
-	AuditStatus       int        `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	BankNo            string     `json:"bankNo"`            // 銀行卡號
-	ClientIP          string     `json:"clientIP"`          // 客户端IP地址(IPv4/IPv6)
-	CreatedAt         *time.Time `json:"createdAt"`
-	UpdatedAt         *time.Time `json:"updatedAt"`
-	ReferrerUserID    int64      `json:"referrerUserID"`   // 邀请人/分享人(loan_users.id)
-	RefCode           string     `json:"refCode"`          // 访问时携带的ref(冗余存储便于排查)
-	LoanDays          int        `json:"loanDays"`         // 借款天数(单位：天)
-	RiskListStatus    int        `json:"riskListStatus"`   // 名单状态：0正常 1白名单 2黑名单
-	RiskListReason    string     `json:"riskListReason"`   // 名单原因/来源说明
-	RiskListMarkedAt  *time.Time `json:"riskListMarkedAt"` // 名单标记时间
+	ApplicationAmount *decimal.Decimal `json:"applicationAmount"` // 申請金額
+	AuditStatus       int              `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
+	BankNo            string           `json:"bankNo"`            // 銀行卡號
+	ClientIP          string           `json:"clientIP"`          // 客户端IP地址(IPv4/IPv6)
+	CreatedAt         *time.Time       `json:"createdAt"`
+	UpdatedAt         *time.Time       `json:"updatedAt"`
+	ReferrerUserID    int64            `json:"referrerUserID"`   // 邀请人/分享人(loan_users.id)
+	RefCode           string           `json:"refCode"`          // 访问时携带的ref(冗余存储便于排查)
+	LoanDays          int              `json:"loanDays"`         // 借款天数(单位：天)
+	RiskListStatus    int              `json:"riskListStatus"`   // 名单状态：0正常 1白名单 2黑名单
+	RiskListReason    string           `json:"riskListReason"`   // 名单原因/来源说明
+	RiskListMarkedAt  *time.Time       `json:"riskListMarkedAt"` // 名单标记时间
 	// --- 新增：风险记录的操作人相关字段（核心调整）---
 	RiskOperateID   uint64 ` json:"riskOperateID"`   // 风险记录操作人ID（loan_risk_customer.created_by）
 	RiskOperateName string ` json:"riskOperateName"` // 风险记录操作人用户名（loan_users.username）
@@ -117,18 +119,18 @@ type LoanBaseinfoObjDetail struct {
 }
 
 type LoanBaseinfoSimpleObjDetail struct {
-	ID                uint64 `json:"id"`                // convert to uint64 id
-	Mobile            string `json:"mobile" binding:""` //手机号码
-	FirstName         string `json:"firstName"`         // 姓
-	SecondName        string `json:"secondName"`        // 名
-	Age               int    `json:"age"`               // 年齡
-	Gender            string `json:"gender"`            // 性別
-	IdType            string `json:"idType"`            // 證件類型
-	IdNumber          string `json:"idNumber"`          // 證件號碼
-	ApplicationAmount int    `json:"applicationAmount"` // 申請金額
-	AuditStatus       int    `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	ReferrerUserID    int64  `json:"referrerUserID"`    // 邀请人/分享人(loan_users.id)
-	LoanDays          int    `json:"loanDays"`          // 借款天数(单位：天)
+	ID                uint64           `json:"id"`                // convert to uint64 id
+	Mobile            string           `json:"mobile" binding:""` //手机号码
+	FirstName         string           `json:"firstName"`         // 姓
+	SecondName        string           `json:"secondName"`        // 名
+	Age               int              `json:"age"`               // 年齡
+	Gender            string           `json:"gender"`            // 性別
+	IdType            string           `json:"idType"`            // 證件類型
+	IdNumber          string           `json:"idNumber"`          // 證件號碼
+	ApplicationAmount *decimal.Decimal `json:"applicationAmount"` // 申請金額
+	AuditStatus       int              `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
+	ReferrerUserID    int64            `json:"referrerUserID"`    // 邀请人/分享人(loan_users.id)
+	LoanDays          int              `json:"loanDays"`          // 借款天数(单位：天)
 }
 
 type LoanBaseinfoWithAuditRecords struct {
