@@ -62,9 +62,9 @@ type LoanPaymentChannelsObjDetail struct {
 	Status           int        `json:"status"`           // 渠道状态：1启用 0禁用
 	CanPayout        int        `json:"canPayout"`        // 是否支持代付/放款：1是 0否
 	CanCollect       int        `json:"canCollect"`       // 是否支持代收/回款：1是 0否
-	PayoutFeeRate    string     `json:"payoutFeeRate"`    // 代付手续费率(如0.003500=0.35%)
+	PayoutFeeRate    float32    `json:"payoutFeeRate"`    // 代付手续费率(如0.003500=0.35%)
 	PayoutFeeFixed   int        `json:"payoutFeeFixed"`   // 代付固定手续费(分，若不用可为空)
-	CollectFeeRate   string     `json:"collectFeeRate"`   // 代收手续费率
+	CollectFeeRate   float32    `json:"collectFeeRate"`   // 代收手续费率
 	CollectFeeFixed  int        `json:"collectFeeFixed"`  // 代收固定手续费(分)
 	CollectMinAmount int        `json:"collectMinAmount"` // 最小代收金额(分)
 	CollectMaxAmount int        `json:"collectMaxAmount"` // 最大代收金额(分)
