@@ -115,13 +115,13 @@ func (d *loanPaymentChannelsDao) updateDataByID(ctx context.Context, db *gorm.DB
 	if table.CanCollect != 0 {
 		update["can_collect"] = table.CanCollect
 	}
-	if table.PayoutFeeRate.IsZero() == false {
+	if table.PayoutFeeRate == 0.0 {
 		update["payout_fee_rate"] = table.PayoutFeeRate
 	}
 	if table.PayoutFeeFixed != 0 {
 		update["payout_fee_fixed"] = table.PayoutFeeFixed
 	}
-	if table.CollectFeeRate.IsZero() == false {
+	if table.CollectFeeRate == 0.0 {
 		update["collect_fee_rate"] = table.CollectFeeRate
 	}
 	if table.CollectFeeFixed != 0 {

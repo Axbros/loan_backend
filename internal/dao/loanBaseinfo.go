@@ -171,7 +171,7 @@ func (d *loanBaseinfoDao) updateDataByID(ctx context.Context, db *gorm.DB, table
 	if table.Mobile != "" {
 		update["mobile"] = table.Mobile
 	}
-	if table.ApplicationAmount != nil {
+	if table.ApplicationAmount != 0 {
 		update["application_amount"] = table.ApplicationAmount
 	}
 	if table.AuditStatus != 0 {

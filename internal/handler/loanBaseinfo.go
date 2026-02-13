@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
@@ -332,28 +331,36 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			createdDisbursementID = existing.ID
 		} else if errors.Is(err, gorm.ErrRecordNotFound) {
 			// ✅ 不存在：创建 disbursement + schedule
-			if loanBaseinfoRecord.ApplicationAmount == nil {
+			if loanBaseinfoRecord.ApplicationAmount == 0 {
 				_ = tx.Rollback().Error
 				response.Error(c, ecode.InvalidParams)
 				return
 			}
 
-			feeRate := decimal.Zero
-			if paymentChannelRecord.PayoutFeeRate != nil {
-				feeRate = *paymentChannelRecord.PayoutFeeRate
+			var feeRate float32 = 0.0
+			if paymentChannelRecord.PayoutFeeRate != 0 {
+				feeRate = paymentChannelRecord.PayoutFeeRate // 如 35 → 代表 35%
+			}
+			// 1. 校验申请金额（int64类型，分）
+			if loanBaseinfoRecord.ApplicationAmount == 0 {
+				_ = tx.Rollback().Error
+				response.Error(c, ecode.InvalidParams)
+				return
 			}
 
-			applicationAmount := *loanBaseinfoRecord.ApplicationAmount
-			netAmount := applicationAmount.Mul(decimal.NewFromInt(1).Sub(feeRate))
-			disburseAmount := applicationAmount
+			applicationAmount := loanBaseinfoRecord.ApplicationAmount
+			// 先转成int64计算，避免float32精度丢失（核心！）
+			feeAmount := (applicationAmount * int64(feeRate)) / 100 // 手续费（分）
+			netAmount := applicationAmount - feeAmount              // 净金额（分）
+			disburseAmount := applicationAmount                     //单位是分
 
 			now := time.Now()
 			currentTime := &now
 
 			disbursmentRecord := &model.LoanDisbursements{
 				BaseinfoID:           form.CustomerID,
-				DisburseAmount:       &disburseAmount,
-				NetAmount:            &netAmount,
+				DisburseAmount:       disburseAmount,
+				NetAmount:            netAmount,
 				Status:               1, // 已放款（如你们需要先“放款中”，可改为中间态）
 				SourceReferrerUserID: loanBaseinfoRecord.ReferrerUserID,
 				AuditorUserID:        uid,
@@ -379,17 +386,15 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			dueDateOnly := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, dueDate.Location())
 			dueDatePtr := &dueDateOnly
 
-			disburseAmountCent := int(disburseAmount.Mul(decimal.NewFromInt(100)).IntPart())
-
 			scheduleRecord := &model.LoanRepaymentSchedules{
 				DisbursementID: int64(createdDisbursementID),
 				InstallmentNo:  1,
 				DueDate:        dueDatePtr,
-				PrincipalDue:   disburseAmountCent,
+				PrincipalDue:   disburseAmount,
 				InterestDue:    0,
-				FeeDue:         disburseAmountCent,
+				FeeDue:         disburseAmount,
 				PenaltyDue:     0,
-				TotalDue:       disburseAmountCent,
+				TotalDue:       disburseAmount,
 				PaidPrincipal:  0,
 				PaidInterest:   0,
 				PaidFee:        0,
@@ -450,11 +455,16 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 	}
 
 	// 10) commit 成功后再 touch last_used_at
-	go func(ctx context.Context, deviceID uint64) {
-		if err := h.userDao.TouchMFADeviceLastUsedAt(ctx, deviceID); err != nil {
+	go func(deviceID uint64) {
+		// 创建独立上下文：脱离 gin 请求的 ctx，设置超时（防止无限阻塞）
+		asyncCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel() // 确保超时/执行完后释放资源
+
+		// 使用独立的 asyncCtx 执行数据库操作
+		if err := h.userDao.TouchMFADeviceLastUsedAt(asyncCtx, deviceID); err != nil {
 			logger.Warn("更新MFA设备最后使用时间失败", logger.Err(err), logger.Uint64("device_id", deviceID))
 		}
-	}(ctx, dev.ID)
+	}(dev.ID) // 不再传递 gin 的 ctx
 
 	response.Success(c, gin.H{})
 }

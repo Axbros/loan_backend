@@ -1,7 +1,6 @@
 package model
 
 import (
-	"github.com/shopspring/decimal"
 	"time"
 
 	"github.com/go-dev-frame/sponge/pkg/sgorm"
@@ -10,31 +9,31 @@ import (
 type LoanBaseinfo struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	FirstName         string           `gorm:"column:first_name;type:varchar(32)" json:"firstName"`   // 姓
-	SecondName        string           `gorm:"column:second_name;type:varchar(32)" json:"secondName"` // 名
-	Age               int              `gorm:"column:age;type:int(11)" json:"age"`                    // 年齡
-	Gender            string           `gorm:"column:gender;type:varchar(4)" json:"gender"`           // 性別
-	IdType            string           `gorm:"column:id_type;type:varchar(32)" json:"idType"`         // 證件類型
-	IdNumber          string           `gorm:"column:id_number;type:varchar(32)" json:"idNumber"`     // 證件號碼
-	IdCard            string           `gorm:"column:id_card;type:varchar(255)" json:"idCard"`        // 證件
-	Operator          string           `gorm:"column:operator;type:varchar(255)" json:"operator"`     // 操作系統
-	Mobile            string           `gorm:"column:mobile;type:varchar(32)" json:"mobile"`
-	Work              string           `gorm:"column:work;type:varchar(255)" json:"work"`                             // 工作
-	Company           string           `gorm:"column:company;type:varchar(255)" json:"company"`                       // 公司
-	Salary            int              `gorm:"column:salary;type:int(11)" json:"salary"`                              // 薪資
-	MaritalStatus     int              `gorm:"column:marital_status;type:tinyint(4)" json:"maritalStatus"`            // 婚否
-	HasHouse          int              `gorm:"column:has_house;type:tinyint(4)" json:"hasHouse"`                      // 是否有房
-	HasCar            int              `gorm:"column:has_car;type:tinyint(4)" json:"hasCar"`                          // 是否有車
-	ApplicationAmount *decimal.Decimal `gorm:"column:application_amount;type:decimal(10,2)" json:"applicationAmount"` // 申請金額
-	AuditStatus       int              `gorm:"column:audit_status;type:tinyint(4);default:0" json:"auditStatus"`      // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	BankNo            string           `gorm:"column:bank_no;type:varchar(255)" json:"bankNo"`                        // 銀行卡號
-	ClientIP          string           `gorm:"column:client_ip;type:varbinary(16)" json:"clientIP"`                   // 客户端IP地址(IPv4/IPv6)
-	ReferrerUserID    int64            `gorm:"column:referrer_user_id;type:bigint(20)" json:"referrerUserID"`         // 邀请人/分享人(loan_users.id)
-	RefCode           string           `gorm:"column:ref_code;type:varchar(32)" json:"refCode"`                       // 访问时携带的ref(冗余存储便于排查)
-	LoanDays          int              `gorm:"column:loan_days;type:smallint(6);not null" json:"loanDays"`            // 借款天数(单位：天)
-	RiskListStatus    int              `gorm:"column:-" json:"riskListStatus"`                                        // 名单状态：0正常 1白名单 2黑名单
-	RiskListReason    string           `gorm:"column:-" json:"riskListReason"`                                        // 名单原因/来源说明
-	RiskListMarkedAt  *time.Time       `gorm:"column:-" json:"riskListMarkedAt"`                                      // 名单标记时间
+	FirstName         string     `gorm:"column:first_name;type:varchar(32)" json:"firstName"`   // 姓
+	SecondName        string     `gorm:"column:second_name;type:varchar(32)" json:"secondName"` // 名
+	Age               int        `gorm:"column:age;type:int(11)" json:"age"`                    // 年齡
+	Gender            string     `gorm:"column:gender;type:varchar(4)" json:"gender"`           // 性別
+	IdType            string     `gorm:"column:id_type;type:varchar(32)" json:"idType"`         // 證件類型
+	IdNumber          string     `gorm:"column:id_number;type:varchar(32)" json:"idNumber"`     // 證件號碼
+	IdCard            string     `gorm:"column:id_card;type:varchar(255)" json:"idCard"`        // 證件
+	Operator          string     `gorm:"column:operator;type:varchar(255)" json:"operator"`     // 操作系統
+	Mobile            string     `gorm:"column:mobile;type:varchar(32)" json:"mobile"`
+	Work              string     `gorm:"column:work;type:varchar(255)" json:"work"`                          // 工作
+	Company           string     `gorm:"column:company;type:varchar(255)" json:"company"`                    // 公司
+	Salary            int        `gorm:"column:salary;type:int(11)" json:"salary"`                           // 薪資
+	MaritalStatus     int        `gorm:"column:marital_status;type:tinyint(4)" json:"maritalStatus"`         // 婚否
+	HasHouse          int        `gorm:"column:has_house;type:tinyint(4)" json:"hasHouse"`                   // 是否有房
+	HasCar            int        `gorm:"column:has_car;type:tinyint(4)" json:"hasCar"`                       // 是否有車
+	ApplicationAmount int64      `gorm:"column:application_amount;type:bigint(20)" json:"applicationAmount"` // 申請金額 单位：分
+	AuditStatus       int        `gorm:"column:audit_status;type:tinyint(4);default:0" json:"auditStatus"`   // 審核情況 0待審核 1審核通過 -1 審核拒絕
+	BankNo            string     `gorm:"column:bank_no;type:varchar(255)" json:"bankNo"`                     // 銀行卡號
+	ClientIP          string     `gorm:"column:client_ip;type:varbinary(16)" json:"clientIP"`                // 客户端IP地址(IPv4/IPv6)
+	ReferrerUserID    int64      `gorm:"column:referrer_user_id;type:bigint(20)" json:"referrerUserID"`      // 邀请人/分享人(loan_users.id)
+	RefCode           string     `gorm:"column:ref_code;type:varchar(32)" json:"refCode"`                    // 访问时携带的ref(冗余存储便于排查)
+	LoanDays          int        `gorm:"column:loan_days;type:smallint(6);not null" json:"loanDays"`         // 借款天数(单位：天)
+	RiskListStatus    int        `gorm:"column:-" json:"riskListStatus"`                                     // 名单状态：0正常 1白名单 2黑名单
+	RiskListReason    string     `gorm:"column:-" json:"riskListReason"`                                     // 名单原因/来源说明
+	RiskListMarkedAt  *time.Time `gorm:"column:-" json:"riskListMarkedAt"`                                   // 名单标记时间
 	// --- 新增：风险记录的操作人相关字段（核心调整）---
 	RiskOperateID   uint64 `gorm:"column:-" json:"riskOperateID"`   // 风险记录操作人ID（loan_risk_customer.created_by）
 	RiskOperateName string `gorm:"column:-" json:"riskOperateName"` // 风险记录操作人用户名（loan_users.username）

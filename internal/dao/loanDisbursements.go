@@ -215,10 +215,10 @@ func (d *loanDisbursementsDao) updateDataByID(ctx context.Context, db *gorm.DB, 
 	if table.BaseinfoID != 0 {
 		update["baseinfo_id"] = table.BaseinfoID
 	}
-	if table.DisburseAmount != nil {
+	if table.DisburseAmount != 0 {
 		update["disburse_amount"] = table.DisburseAmount
 	}
-	if table.NetAmount != nil {
+	if table.NetAmount != 0 {
 		update["net_amount"] = table.NetAmount
 	}
 	if table.Status != 0 {
