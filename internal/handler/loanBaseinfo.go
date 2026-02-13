@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"github.com/shopspring/decimal"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -45,11 +47,12 @@ type LoanBaseinfoHandler interface {
 }
 
 type loanBaseinfoHandler struct {
-	iDao           dao.LoanBaseinfoDao
-	auditDao       dao.LoanAuditsDao
-	userDao        dao.LoanUsersDao
-	channelDao     dao.LoanPaymentChannelsDao
-	disbursmentDao dao.LoanDisbursementsDao
+	iDao                 dao.LoanBaseinfoDao
+	auditDao             dao.LoanAuditsDao
+	userDao              dao.LoanUsersDao
+	channelDao           dao.LoanPaymentChannelsDao
+	disbursmentDao       dao.LoanDisbursementsDao
+	repaymentScheduleDao dao.LoanRepaymentSchedulesDao
 }
 
 // NewLoanBaseinfoHandler creating the handler interface
@@ -74,6 +77,10 @@ func NewLoanBaseinfoHandler() LoanBaseinfoHandler {
 		disbursmentDao: dao.NewLoanDisbursementsDao(
 			database.GetDB(),
 			cache.NewLoanDisbursementsCache(database.GetCacheType()),
+		),
+		repaymentScheduleDao: dao.NewLoanRepaymentSchedulesDao(
+			database.GetDB(),
+			cache.NewLoanRepaymentSchedulesCache(database.GetCacheType()),
 		),
 	}
 }
@@ -159,121 +166,161 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// ########### 新增：解析并校验请求的审核类型 ###########
+	// 解析并校验审核类型
 	auditType := parseAuditType(form.AuditType)
 	if auditType == -1 {
-		//logger.Warn("parseAuditType error: ", logger.Err(err), "audit_type:", form.AuditType, middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InternalServerError) // 返无效审核类型错误
+		logger.Warn("无效的审核类型", logger.String("audit_type", strconv.Itoa(form.AuditType)), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidAuditType)
 		return
 	}
-	// #######################################################
 
-	// 0) 查当前用户是否启用 MFA
+	// 查询当前用户是否启用 MFA
 	u, err := h.userDao.GetByID(ctx, uid)
 	if err != nil {
+		logger.Error("查询用户信息失败", logger.Err(err), logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.ErrGetByIDLoanUsers)
 		return
 	}
-	if u.MfaEnabled == 1 {
-		otpCode := strings.TrimSpace(form.MfaCode)
-		if len(otpCode) != 6 {
-			response.Error(c, ecode.MFAOTPRequired)
-			return
-		}
 
-		// 1) 查用户的 active 主设备
-		dev, err := h.userDao.GetActivePrimaryMFADevice(ctx, uid)
-		if err != nil {
-			response.Error(c, ecode.InternalServerError)
-			return
-		}
-
-		// 2) 解密 secret
-		secret, err := decryptSecretFromBytes(dev.SecretEnc)
-		if err != nil {
-			response.Error(c, ecode.ErrSecret)
-			return
-		}
-		secret = strings.TrimSpace(secret)
-
-		// 3) 校验 OTP（允许 1 个窗口偏移）
-		ok, err := totp.ValidateCustom(otpCode, secret, time.Now(), totp.ValidateOpts{
-			Period:    30,
-			Skew:      1,
-			Digits:    otp.DigitsSix,
-			Algorithm: otp.AlgorithmSHA1,
-		})
-		if err != nil {
-			response.Error(c, ecode.ErrSecret)
-			return
-		}
-		if !ok {
-			response.Error(c, ecode.InvalidOTP)
-			return
-		}
-
-		// 4) 可选：更新 last_used_at
-		_ = h.userDao.TouchMFADeviceLastUsedAt(ctx, dev.ID)
-
-		// 先audit表插入数据
-		var auditResult int
-
+	// 核心审核逻辑函数
+	// 核心审核逻辑函数
+	auditCoreLogic := func() error {
+		// 1. 查询放款基础信息
 		loanBaseinfoRecord, err := h.iDao.GetByID(ctx, form.CustomerID)
 		if err != nil {
-			logger.Warn("GetByID error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+			logger.Warn("GetByID LoanBaseinfo error: ", logger.Err(err), logger.Uint64("customer_id", form.CustomerID), middleware.GCtxRequestIDField(c))
 			response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
-			return
+			return err
+		}
+		if loanBaseinfoRecord == nil {
+			logger.Warn("放款基础信息不存在", logger.Uint64("customer_id", form.CustomerID), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
+			return errors.New("loan baseinfo not found")
 		}
 
+		// 2. 财务审核专属逻辑：仅审核通过时创建放款记录 + 还款计划
 		if form.AuditType == FinanceReviewType {
-			if form.PaymentChannelID == 0 {
-				response.Error(c, ecode.ErrPaymentChannel)
-				return
-			}
-			paymentChannelRecord, err := h.channelDao.GetByID(ctx, form.PaymentChannelID)
-			if err != nil {
-				response.Error(c, ecode.ErrGetByIDLoanPaymentChannels)
-				return
-			}
-
-			var feeRate decimal.Decimal
-			if paymentChannelRecord.PayoutFeeRate != nil {
-				feeRate = *paymentChannelRecord.PayoutFeeRate
+			// 第一步：先判断审核结果，拒绝则直接跳过
+			if !form.AuditResult {
+				logger.Warn("财务审核拒绝放款，跳过创建放款记录", logger.Uint64("customer_id", form.CustomerID), middleware.GCtxRequestIDField(c))
 			} else {
-				// 如果费率为空，默认设为 0
-				feeRate = decimal.Zero
-			}
-			// 计算 NetAmount：申请金额 * (1 - 支付费率)
-			// 2. 转换所有参与运算的值为 decimal 类型，保证类型一致
-			one := decimal.NewFromInt(1)                              // 整数 1 转 decimal
-			applicationAmount := loanBaseinfoRecord.ApplicationAmount // int 转 decimal
+				if form.PaymentChannelID == 0 {
+					response.Error(c, ecode.ErrPaymentChannel)
+					return errors.New("payment channel id is 0")
+				}
 
-			// 3. 分步计算净金额：申请金额 * (1 - 支付费率)
-			discountRate := one.Sub(feeRate)                 // 计算 1 - 费率
-			netAmount := applicationAmount.Mul(discountRate) // 申请金额 * 折扣率
+				// 查询支付渠道信息
+				paymentChannelRecord, err := h.channelDao.GetByID(ctx, form.PaymentChannelID)
+				if err != nil {
+					logger.Error("查询支付渠道失败", logger.Err(err), logger.Uint64("channel_id", form.PaymentChannelID), middleware.GCtxRequestIDField(c))
+					response.Error(c, ecode.ErrGetByIDLoanPaymentChannels)
+					return err
+				}
+				if paymentChannelRecord == nil {
+					logger.Warn("支付渠道不存在", logger.Uint64("channel_id", form.PaymentChannelID), middleware.GCtxRequestIDField(c))
+					response.Error(c, ecode.ErrGetByIDLoanPaymentChannels)
+					return errors.New("payment channel not found")
+				}
 
-			//根据 渠道 写入放款表
-			now := getCurrentTime()
-			disbursmentRecord := &model.LoanDisbursements{
-				BaseinfoID:           form.CustomerID,
-				DisburseAmount:       loanBaseinfoRecord.ApplicationAmount,
-				NetAmount:            &netAmount,
-				Status:               1,
-				SourceReferrerUserID: loanBaseinfoRecord.ReferrerUserID,
-				AuditorUserID:        uid,
-				PayoutChannelID:      form.PaymentChannelID,
-				AuditedAt:            now,
-				DisbursedAt:          now,
-				PayoutOrderNo:        generateOrderNo(),
-			}
-			err = h.disbursmentDao.Create(ctx, disbursmentRecord)
-			if err != nil {
-				response.Error(c, ecode.ErrCreateLoanDisbursements)
-				return
+				// 处理费率：空值默认0
+				var feeRate decimal.Decimal
+				if paymentChannelRecord.PayoutFeeRate != nil {
+					feeRate = *paymentChannelRecord.PayoutFeeRate
+				} else {
+					feeRate = decimal.Zero
+				}
+
+				// 金额类型适配（decimal 类型计算）
+				applicationAmount := *loanBaseinfoRecord.ApplicationAmount
+
+				// 计算净金额：申请金额 * (1 - 费率)
+				one := decimal.NewFromInt(1)
+				discountRate := one.Sub(feeRate)
+				netAmount := applicationAmount.Mul(discountRate)
+
+				// 构造放款金额（*decimal.Decimal 类型）
+				disburseAmount := applicationAmount // 放款金额 = 申请金额
+
+				// 推荐人ID赋值（外键约束已删除，直接赋值）
+				sourceReferrerUserID := loanBaseinfoRecord.ReferrerUserID
+
+				// 获取当前时间
+				now := time.Now()
+				currentTime := &now
+
+				// 构造放款记录
+				disbursmentRecord := &model.LoanDisbursements{
+					BaseinfoID:           form.CustomerID,
+					DisburseAmount:       &disburseAmount,
+					NetAmount:            &netAmount,
+					Status:               1, // 已放款
+					SourceReferrerUserID: sourceReferrerUserID,
+					AuditorUserID:        uid,
+					PayoutChannelID:      form.PaymentChannelID,
+					AuditedAt:            currentTime,
+					DisbursedAt:          currentTime,
+					PayoutOrderNo:        generateOrderNo(),
+				}
+
+				// 创建放款记录（不使用事务，按你要求先完成逻辑）
+				err = h.disbursmentDao.Create(ctx, disbursmentRecord)
+				if err != nil {
+					logger.Error("创建放款记录失败", logger.Err(err), logger.Uint64("customer_id", form.CustomerID), middleware.GCtxRequestIDField(c))
+					response.Error(c, ecode.ErrCreateLoanDisbursements)
+					return err
+				}
+
+				// ########### 生成还款计划（核心调整）###########
+				// 1. 从loanBaseinfoRecord获取借款天数
+				loanDays := loanBaseinfoRecord.LoanDays
+				if loanDays <= 0 {
+					logger.Warn("借款天数无效，默认设为30天", logger.Int("loan_days", loanDays), logger.Uint64("customer_id", form.CustomerID))
+					loanDays = 30 // 兜底默认值
+				}
+
+				// 2. 计算应还日期：当前日期 + loanDays 天
+				dueDate := now.AddDate(0, 0, loanDays)
+
+				// ✅ 核心修正：正确创建仅含日期的 time.Time 实例
+				// time.Date(年, 月, 日, 时, 分, 秒, 纳秒, 时区) → 时分秒设为0，只保留日期
+				dueDateOnly := time.Date(dueDate.Year(), dueDate.Month(), dueDate.Day(), 0, 0, 0, 0, dueDate.Location())
+				dueDatePtr := &dueDateOnly // 转为指针，适配模型的 *time.Time 类型
+
+				// 3. 转换放款金额为分（元→分）
+				disburseAmountCent := int(disburseAmount.Mul(decimal.NewFromInt(100)).IntPart())
+
+				// 4. 构造还款计划记录
+				scheduleRecord := &model.LoanRepaymentSchedules{
+					DisbursementID: int64(disbursmentRecord.ID),
+					InstallmentNo:  1,                  // 固定1期
+					DueDate:        dueDatePtr,         // 当前日期+loanDays
+					PrincipalDue:   disburseAmountCent, // 应还本金=放款金额
+					InterestDue:    0,                  // 利息暂为0
+					FeeDue:         disburseAmountCent, // 应还费用=放款金额
+					PenaltyDue:     0,                  // 罚息暂为0
+					TotalDue:       disburseAmountCent, // 应还总额=放款金额
+					PaidPrincipal:  0,                  // 已还本金=0
+					PaidInterest:   0,                  // 已还利息=0
+					PaidFee:        0,                  // 已还费用=0
+					PaidPenalty:    0,                  // 已还罚息=0
+					PaidTotal:      0,                  // 已还总额=0
+					Status:         0,                  // 未还清
+					LastPaidAt:     nil,                // 最近还款时间=null
+					SettledAt:      nil,                // 结清时间=null
+				}
+
+				// 5. 插入还款计划
+				err = h.repaymentScheduleDao.Create(ctx, scheduleRecord)
+				if err != nil {
+					logger.Error("创建还款计划失败", logger.Err(err), logger.Uint64("disbursement_id", disbursmentRecord.ID), middleware.GCtxRequestIDField(c))
+					response.Error(c, ecode.ErrCreateLoanRepaymentSchedules)
+					return err
+				}
 			}
 		}
 
-		// 审核通过/驳回
+		// 3. 更新放款基础信息审核状态（无论通过/拒绝都执行）
+		var auditResult int
 		if form.AuditResult {
 			auditResult = 1
 			loanBaseinfoRecord.AuditStatus = form.AuditType
@@ -281,35 +328,106 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			auditResult = -1
 			loanBaseinfoRecord.AuditStatus = -1
 		}
-		// 简化赋值：无需两次写，一次赋值即可 AuditStatus作为流程阶段吧
 
 		err = h.iDao.UpdateByID(ctx, loanBaseinfoRecord)
 		if err != nil {
-			logger.Warn("UpdateByID error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+			logger.Warn("UpdateByID LoanBaseinfo error: ", logger.Err(err), logger.Uint64("customer_id", form.CustomerID), middleware.GCtxRequestIDField(c))
 			response.Error(c, ecode.ErrUpdateByIDLoanBaseinfo)
-			return
+			return err
 		}
 
-		// ########### 核心修复：替换写死的PreReviewType为解析后的auditType ###########
+		// 4. 创建审核记录（无论通过/拒绝都执行）
 		record := &model.LoanAudits{
 			AuditResult:   auditResult,
-			AuditType:     int(auditType), // 用请求传的审核类型
+			AuditType:     int(auditType),
 			AuditComment:  form.Remark,
 			BaseinfoID:    form.CustomerID,
 			AuditorUserID: uid,
 		}
-		// ###########################################################################
 
 		err = h.auditDao.Create(ctx, record)
 		if err != nil {
+			logger.Error("创建审核记录失败", logger.Err(err), logger.Uint64("customer_id", form.CustomerID), middleware.GCtxRequestIDField(c))
 			response.Error(c, ecode.ErrCreateLoanAudits)
+			return err
+		}
+
+		// 5. 返回成功
+		response.Success(c, gin.H{})
+		return nil
+	}
+
+	// MFA 启用场景
+	if u.MfaEnabled == 1 {
+		otpCode := strings.TrimSpace(form.MfaCode)
+		if len(otpCode) != 6 {
+			logger.Warn("MFA验证码长度错误", logger.String("otp_code", otpCode), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.MFAOTPRequired)
 			return
 		}
-		response.Success(c, gin.H{})
+
+		// 查询用户的 active 主设备
+		dev, err := h.userDao.GetActivePrimaryMFADevice(ctx, uid)
+		if err != nil {
+			logger.Error("查询MFA主设备失败", logger.Err(err), logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.InternalServerError)
+			return
+		}
+		if dev == nil {
+			logger.Warn("用户无激活的MFA主设备", logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrGetByIDLoanMfaDevices)
+			return
+		}
+
+		// 解密 secret
+		secret, err := decryptSecretFromBytes(dev.SecretEnc)
+		if err != nil {
+			logger.Error("解密MFA密钥失败", logger.Err(err), logger.Uint64("device_id", dev.ID), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrSecret)
+			return
+		}
+		secret = strings.TrimSpace(secret)
+		if secret == "" {
+			logger.Warn("MFA密钥为空", logger.Uint64("device_id", dev.ID), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrSecret)
+			return
+		}
+
+		// 校验 OTP
+		ok, err := totp.ValidateCustom(otpCode, secret, time.Now(), totp.ValidateOpts{
+			Period:    30,
+			Skew:      1,
+			Digits:    otp.DigitsSix,
+			Algorithm: otp.AlgorithmSHA1,
+		})
+		if err != nil {
+			logger.Error("校验MFA验证码失败", logger.Err(err), logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrSecret)
+			return
+		}
+		if !ok {
+			logger.Warn("MFA验证码无效", logger.String("otp_code", otpCode), logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.InvalidOTP)
+			return
+		}
+
+		// 异步更新 last_used_at
+		go func(ctx context.Context, deviceID uint64) {
+			err := h.userDao.TouchMFADeviceLastUsedAt(ctx, deviceID)
+			if err != nil {
+				logger.Warn("更新MFA设备最后使用时间失败", logger.Err(err), logger.Uint64("device_id", deviceID))
+			}
+		}(ctx, dev.ID)
+
+		// 执行核心审核逻辑
+		if err := auditCoreLogic(); err != nil {
+			return
+		}
 	} else {
-		// ########### 新增：补充MFA未启用的分支处理（原代码缺失，会导致无响应） ###########
-		logger.Warn("user MFA not enabled, uid:"+utils.Uint64ToStr(uid), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.MFANotEnabled) // 需在ecode中定义：MFA未启用
+		// MFA未启用时拒绝审核 ✅ 已按你的要求修改
+		logger.Warn("用户未启用MFA，禁止审核", logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.MFANotEnabled)
+		return
 	}
 }
 
