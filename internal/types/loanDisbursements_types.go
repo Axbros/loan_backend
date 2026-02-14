@@ -113,7 +113,7 @@ type PageRequest struct {
 	Page  int `json:"page" form:"page" binding:"gte=0"`   // 页码（从0开始）
 	Limit int `json:"limit" form:"limit" binding:"gte=1"` // 页大小（最小1）
 }
-type LoanDisbursementsCondition struct {
+type BaseCondition struct {
 	Name       string `json:"name" form:"name"`                                                       // 姓名（loan_baseinfo.first_name）
 	Age        *int   `json:"age" form:"age" binding:"omitempty,gte=0"`                               // 年龄（可选，非0）
 	Gender     string `json:"gender" form:"gender" binding:"omitempty,oneof=M W"`                     // 性别（M/W）
@@ -121,9 +121,9 @@ type LoanDisbursementsCondition struct {
 	IDNo       string `json:"idNo" form:"idNo"`                                                       // 证件号码
 	LoanAmount *int64 `json:"loanAmount" form:"loanAmount" binding:"omitempty,gte=0"`                 // 申请金额
 }
-type ListLoanDisbursementsOverviewRequest struct {
-	PageRequest                             // 嵌入分页参数（继承 Page/Limit 字段）
-	Condition   *LoanDisbursementsCondition `json:"condition" form:"condition"`
+type BaseOverviewRequest struct {
+	PageRequest                // 嵌入分页参数（继承 Page/Limit 字段）
+	Condition   *BaseCondition `json:"condition" form:"condition"`
 }
 
 type ListLoanDisbursementsOverviewResponse struct {

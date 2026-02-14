@@ -52,6 +52,24 @@ type UpdateLoanRepaymentSchedulesByIDRequest struct {
 	SettledAt      *time.Time `json:"settledAt" binding:""`      // 结清时间(本期还清时)
 }
 
+type OverViewResponseItem struct {
+	LoanRepaymentSchedulesObjDetail
+	LoanDays   int64   `json:"loanDays"`
+	NetAmount  float64 `json:"net_amount"`
+	BaseinfoID int64   `json:"baseinfo_id"`
+	FirstName  string  `json:"first_name"`
+	SecondName string  `json:"second_name"`
+	Age        int     `json:"age"`
+	Gender     string  `json:"gender"`
+	IdType     string  `json:"id_type"`
+	IdNumber   string  `json:"id_number"`
+}
+
+type OverViewResponseResponse struct {
+	Total int64                   `json:"total"` // 总条数
+	List  []*OverViewResponseItem `json:"list"`  // 分页数据列表
+}
+
 // LoanRepaymentSchedulesObjDetail detail
 type LoanRepaymentSchedulesObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id

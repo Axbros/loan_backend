@@ -38,7 +38,7 @@ type LoanDisbursementsDao interface {
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanDisbursements) error
 
-	GetOverviewList(ctx context.Context, req *types.ListLoanDisbursementsOverviewRequest) (*types.ListLoanDisbursementsOverviewResponse, error)
+	GetOverviewList(ctx context.Context, req *types.BaseOverviewRequest) (*types.ListLoanDisbursementsOverviewResponse, error)
 }
 
 type loanDisbursementsDao struct {
@@ -73,7 +73,7 @@ func (d *loanDisbursementsDao) Create(ctx context.Context, table *model.LoanDisb
 
 func (d *loanDisbursementsDao) GetOverviewList(
 	ctx context.Context,
-	req *types.ListLoanDisbursementsOverviewRequest) (*types.ListLoanDisbursementsOverviewResponse, error) {
+	req *types.BaseOverviewRequest) (*types.ListLoanDisbursementsOverviewResponse, error) {
 	// 1. 定义返回结果
 	var (
 		list  []*types.LoanDisbursedList

@@ -60,7 +60,7 @@ func NewLoanDisbursementsHandler() LoanDisbursementsHandler {
 
 func (h *loanDisbursementsHandler) Overview(c *gin.Context) {
 	// 1. 绑定并校验前端请求参数
-	form := &types.ListLoanDisbursementsOverviewRequest{}
+	form := &types.BaseOverviewRequest{}
 	err := c.ShouldBind(form)
 	if err != nil {
 		response.Error(c, ecode.InvalidParams)

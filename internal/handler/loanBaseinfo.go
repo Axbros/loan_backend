@@ -238,7 +238,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// 2) 开事务（银行级：显式 begin/commit/rollback + recover）
+	// 2) 开事务（显式 begin/commit/rollback + recover）
 	db := database.GetDB()
 	tx := db.WithContext(ctx).Begin()
 	defer func() {
@@ -255,12 +255,12 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// 3) 事务内 DAO（推荐 WithTx；没有的话看文末替代方案）
-	iDao := dao.NewLoanBaseinfoDao(tx, cache.NewLoanBaseinfoCache(database.GetCacheType()))
-	auditDao := dao.NewLoanAuditsDao(tx, cache.NewLoanAuditsCache(database.GetCacheType()))
-	channelDao := dao.NewLoanPaymentChannelsDao(tx, cache.NewLoanPaymentChannelsCache(database.GetCacheType()))
-	disDao := dao.NewLoanDisbursementsDao(tx, cache.NewLoanDisbursementsCache(database.GetCacheType()))
-	repayDao := dao.NewLoanRepaymentSchedulesDao(tx, cache.NewLoanRepaymentSchedulesCache(database.GetCacheType()))
+	// 3) 事务内 DAO
+	//iDao := dao.NewLoanBaseinfoDao(tx, cache.NewLoanBaseinfoCache(database.GetCacheType()))
+	//auditDao := dao.NewLoanAuditsDao(tx, cache.NewLoanAuditsCache(database.GetCacheType()))
+	//channelDao := dao.NewLoanPaymentChannelsDao(tx, cache.NewLoanPaymentChannelsCache(database.GetCacheType()))
+	//disDao := dao.NewLoanDisbursementsDao(tx, cache.NewLoanDisbursementsCache(database.GetCacheType()))
+	//repayDao := dao.NewLoanRepaymentSchedulesDao(tx, cache.NewLoanRepaymentSchedulesCache(database.GetCacheType()))
 
 	// 4) 银行级：锁住 baseinfo 行，防止并发双审/双放款
 	loanBaseinfoRecord := &model.LoanBaseinfo{}
@@ -304,7 +304,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		}
 
 		// 可选：对支付渠道也加锁（一般不需要）
-		paymentChannelRecord, err := channelDao.GetByID(ctx, form.PaymentChannelID)
+		paymentChannelRecord, err := h.channelDao.GetByID(ctx, form.PaymentChannelID)
 		if err != nil {
 			_ = tx.Rollback().Error
 			response.Error(c, ecode.ErrGetByIDLoanPaymentChannels)
@@ -370,7 +370,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 				PayoutOrderNo:        generateOrderNo(), // 建议数据库层加唯一索引保证不重复
 			}
 
-			if err := disDao.Create(ctx, disbursmentRecord); err != nil {
+			if _, err := h.disbursmentDao.CreateByTx(ctx, tx, disbursmentRecord); err != nil {
 				_ = tx.Rollback().Error
 				response.Error(c, ecode.ErrCreateLoanDisbursements)
 				return
@@ -403,7 +403,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 				Status:         0,
 			}
 
-			if err := repayDao.Create(ctx, scheduleRecord); err != nil {
+			if _, err := h.repaymentScheduleDao.CreateByTx(ctx, tx, scheduleRecord); err != nil {
 				_ = tx.Rollback().Error
 				response.Error(c, ecode.ErrCreateLoanRepaymentSchedules)
 				return
@@ -425,7 +425,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		loanBaseinfoRecord.AuditStatus = -1
 	}
 
-	if err := iDao.UpdateByID(ctx, loanBaseinfoRecord); err != nil {
+	if err := h.iDao.UpdateByTx(ctx, tx, loanBaseinfoRecord); err != nil {
 		_ = tx.Rollback().Error
 		response.Error(c, ecode.ErrUpdateByIDLoanBaseinfo)
 		return
@@ -441,7 +441,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		// 可选：把 disbursement_id、payment_channel_id 等也记录在 audits 里（更审计友好）
 	}
 
-	if err := auditDao.Create(ctx, record); err != nil {
+	if _, err := h.auditDao.CreateByTx(ctx, tx, record); err != nil {
 		_ = tx.Rollback().Error
 		response.Error(c, ecode.ErrCreateLoanAudits)
 		return

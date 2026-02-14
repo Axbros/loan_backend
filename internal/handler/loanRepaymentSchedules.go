@@ -29,6 +29,7 @@ type LoanRepaymentSchedulesHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
+	Overview(c *gin.Context)
 
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
@@ -48,6 +49,59 @@ func NewLoanRepaymentSchedulesHandler() LoanRepaymentSchedulesHandler {
 			cache.NewLoanRepaymentSchedulesCache(database.GetCacheType()),
 		),
 	}
+}
+
+// Overview 还款计划概览（分页查询）
+// @Summary 还款计划分页查询
+// @Description 分页查询还款计划，关联放款信息和借款人基础信息
+// @Tags loanRepaymentSchedules
+// @Accept json
+// @Produce json
+// @Param page query int false "页码，默认1" default(1)
+// @Param limit query int false "每页条数，默认10" default(10)
+// @Success 200 {object} types.OverviewReply{}
+// @Router /api/v1/loanRepaymentSchedules/overview [get]
+// @Security BearerAuth
+func (h *loanRepaymentSchedulesHandler) Overview(c *gin.Context) {
+	// 1. 绑定请求参数（query 或 body，根据你的需求调整）
+	form := &types.BaseOverviewRequest{}
+	err := c.ShouldBind(form) // ShouldBind 会自动识别 query/body 等参数来源
+	if err != nil {
+		logger.Warn(
+			"ShouldBind OverviewRequest error: ",
+			logger.Err(err),
+			middleware.GCtxRequestIDField(c),
+		)
+		response.Error(c, ecode.InvalidParams) // 返回参数错误响应
+		return
+	}
+
+	// 2. 参数校验（补充页码/条数的边界值）
+	if form.Page < 0 {
+		form.Page = 0 // 页码默认0
+	}
+	if form.Limit < 1 || form.Limit > 100 {
+		form.Limit = 10 // 每页条数默认10，最大100避免查太多数据
+	}
+
+	// 3. 调用 DAO 层查询
+	ctx := middleware.WrapCtx(c)
+	// overview: 还款计划列表；i: 总条数；err: 错误
+	overview, err := h.iDao.Overview(ctx, form)
+	if err != nil {
+		logger.Error(
+			"DAO Overview query error: ",
+			logger.Err(err),
+			logger.Int("page", form.Page),
+			logger.Int("limit", form.Limit),
+			middleware.GCtxRequestIDField(c),
+		)
+		// 返回内部错误响应
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+
+	response.Success(c, overview) // 返回成功响应
 }
 
 // Create a new loanRepaymentSchedules
