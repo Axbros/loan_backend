@@ -120,6 +120,7 @@ type BaseCondition struct {
 	IDType     string `json:"idType" form:"idType" binding:"omitempty,oneof=ID_CARD PASSPORT DRIVER"` // 证件类型
 	IDNo       string `json:"idNo" form:"idNo"`                                                       // 证件号码
 	LoanAmount *int64 `json:"loanAmount" form:"loanAmount" binding:"omitempty,gte=0"`                 // 申请金额
+	Status     *int   `json:"status" form:"status"`
 }
 type BaseOverviewRequest struct {
 	PageRequest                // 嵌入分页参数（继承 Page/Limit 字段）

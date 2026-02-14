@@ -89,6 +89,11 @@ func (d *loanRepaymentSchedulesDao) Overview(
 			whereArgs = append(whereArgs, "%"+cond.Name+"%")
 		}
 
+		if cond.Status != nil {
+			whereConditions = append(whereConditions, "s.status = ?")
+			whereArgs = append(whereArgs, *cond.Status)
+		}
+
 		// 1.2 年龄：精确匹配（非0）
 		if cond.Age != nil && *cond.Age > 0 {
 			whereConditions = append(whereConditions, "b.age = ?")
