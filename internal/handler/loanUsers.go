@@ -9,6 +9,7 @@ import (
 	"errors"
 	"io"
 	"loan/internal/config"
+	"loan/internal/tool"
 	"math"
 	"strconv"
 	"strings"
@@ -103,7 +104,7 @@ func (h *loanUsersHandler) BindMFA(c *gin.Context) {
 	}
 
 	// 2) 解密 secret_enc
-	secret, err := decryptSecretFromBytes(dev.SecretEnc) // 你 SecretEnc 若改成 []byte，就不用 []byte(...)
+	secret, err := tool.DecryptSecretFromBytes(dev.SecretEnc) // 你 SecretEnc 若改成 []byte，就不用 []byte(...)
 	if err != nil {
 		response.Error(c, ecode.InternalServerError)
 		return
@@ -367,7 +368,7 @@ func (h *loanUsersHandler) Login(c *gin.Context) {
 
 		// 4.3 解密 secret
 		// ✅ 推荐你的 model SecretEnc 用 []byte；如果还是 string 就用 []byte(dev.SecretEnc)
-		secret, err := decryptSecretFromBytes(dev.SecretEnc)
+		secret, err := tool.DecryptSecretFromBytes(dev.SecretEnc)
 		if err != nil {
 			logger.Error("decryptSecret error", logger.Err(err), middleware.GCtxRequestIDField(c))
 			response.Error(c, ecode.ErrSecret)
@@ -940,46 +941,4 @@ func encryptSecretToBytes(plain string) ([]byte, error) {
 
 	ciphertext := gcm.Seal(nil, nonce, []byte(plain), nil)
 	return append(nonce, ciphertext...), nil
-}
-
-func decryptSecretFromBytes(enc []byte) (string, error) {
-	keyStr := config.Get().Authorization.Key
-	if keyStr == "" {
-		return "", errors.New("MFA_AES_KEY empty")
-	}
-
-	var key []byte
-	if len(keyStr) == 64 {
-		b, err := hex.DecodeString(keyStr)
-		if err != nil {
-			return "", err
-		}
-		key = b
-	} else {
-		key = []byte(keyStr)
-	}
-	if len(key) != 32 {
-		return "", errors.New("MFA_AES_KEY must be 32 bytes or 64 hex chars")
-	}
-
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return "", err
-	}
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return "", err
-	}
-	nonceSize := gcm.NonceSize()
-	if len(enc) < nonceSize+16 {
-		return "", errors.New("ciphertext too short")
-	}
-
-	nonce := enc[:nonceSize]
-	ciphertext := enc[nonceSize:]
-	plain, err := gcm.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return "", err
-	}
-	return string(plain), nil
 }

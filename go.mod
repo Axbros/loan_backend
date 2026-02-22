@@ -53,6 +53,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/pprof v0.0.0-20211214055906-6f57359322fd // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect

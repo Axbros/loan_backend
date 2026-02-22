@@ -12,27 +12,47 @@ var _ time.Time
 
 // CreateLoanRepaymentTransactionsRequest request params
 type CreateLoanRepaymentTransactionsRequest struct {
-	DisbursementID   int64      `json:"disbursementID" binding:""`   // 关联放款单 loan_disbursements.id
-	ScheduleID       int64      `json:"scheduleID" binding:""`       // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
-	CollectChannelID int64      `json:"collectChannelID" binding:""` // 回款渠道(代收) loan_payment_channels.id
-	CollectOrderNo   string     `json:"collectOrderNo" binding:""`   // 回款订单号/三方代收单号(商户单号)
-	PayRef           string     `json:"payRef" binding:""`           // 支付渠道流水号/交易号(三方transaction id)
-	PayAmount        int        `json:"payAmount" binding:""`        // 本次回款金额(分)
-	PayMethod        string     `json:"payMethod" binding:""`        // 回款方式(如 BANK_TRANSFER/CARD/WALLET/CASH)
-	PaidAt           *time.Time `json:"paidAt" binding:""`           // 回款时间(交易成功时间)
-	AllocPrincipal   int        `json:"allocPrincipal" binding:""`   // 本次分配到本金(分)
-	AllocInterest    int        `json:"allocInterest" binding:""`    // 本次分配到利息(分)
-	AllocFee         int        `json:"allocFee" binding:""`         // 本次分配到费用(分)
-	AllocPenalty     int        `json:"allocPenalty" binding:""`     // 本次分配到罚息(分)
-	Status           int        `json:"status" binding:""`           // 流水状态：1成功 0失败 2冲正/撤销
-	Remark           string     `json:"remark" binding:""`           // 备注
+	ScheduleID int64 `json:"scheduleID" binding:""` // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
+
+	PayAmount       int    `json:"payAmount" binding:""`      // 本次回款金额(分)
+	PayMethod       string `json:"payMethod" binding:""`      // 回款方式(如 BANK_TRANSFER/WALLET)
+	AllocPrincipal  int    `json:"allocPrincipal" binding:""` // 本次分配到本金(分)
+	AllocInterest   int    `json:"allocInterest" binding:""`  // 本次分配到利息(分)
+	AllocFee        int    `json:"allocFee" binding:""`       // 本次分配到费用(分)
+	AllocPenalty    int    `json:"allocPenalty" binding:""`   // 本次分配到罚息(分)
+	VoucherFileName string `json:"voucherFileName" binding:""`
+	MfaCode         string `json:"mfaCode" binding:""`
+	Remark          string `json:"remark" binding:""` // 备注
+}
+
+type DetailByScheduleIDRequest struct {
+	ScheduleID uint64 `json:"schedule_id" binding:""`
+}
+
+// RepaymentScheduleDetail 还款计划详情查询结果结构体
+// 对应你的多表关联查询结果
+type RepaymentScheduleDetail struct {
+	FirstName         string     `gorm:"column:first_name" json:"firstName"`                 // 借款人名字
+	SecondName        string     `gorm:"column:second_name" json:"secondName"`               // 借款人姓氏
+	Age               int        `gorm:"column:age" json:"age"`                              // 借款人年龄
+	Gender            string     `gorm:"column:gender" json:"gender"`                        // 借款人性别
+	IDType            string     `gorm:"column:id_type" json:"idType"`                       // 证件类型
+	IDNumber          string     `gorm:"column:id_number" json:"idNumber"`                   // 证件号码
+	ApplicationAmount int64      `gorm:"column:application_amount" json:"applicationAmount"` // 申请金额（分）
+	NetAmount         int64      `gorm:"column:net_amount" json:"netAmount"`                 // 放款净金额（分）
+	PayoutOrderNo     string     `gorm:"column:payout_order_no" json:"payoutOrderNo"`        // 放款订单号
+	DisbursedAt       *time.Time `gorm:"column:disbursed_at" json:"disbursedAt"`             // 放款时间
+	DueDate           *time.Time `gorm:"column:due_date" json:"dueDate"`                     // 应还日期
+	PaidTotal         int64      `gorm:"column:paid_total" json:"paidTotal"`                 // 已还总额（分）
+	TotalDue          int64      `gorm:"column:total_due" json:"totalDue"`                   // 应还总额（分）
+	ChannelName       string     `gorm:"column:name" json:"channelName"`                     // 支付渠道名称
+	PayoutFeeRate     int64      `gorm:"column:payout_fee_rate" json:"payoutFeeRate"`        // 手续费率
 }
 
 // UpdateLoanRepaymentTransactionsByIDRequest request params
 type UpdateLoanRepaymentTransactionsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 	// 回款流水ID
-	DisbursementID   int64      `json:"disbursementID" binding:""`   // 关联放款单 loan_disbursements.id
 	ScheduleID       int64      `json:"scheduleID" binding:""`       // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
 	CollectChannelID int64      `json:"collectChannelID" binding:""` // 回款渠道(代收) loan_payment_channels.id
 	CollectOrderNo   string     `json:"collectOrderNo" binding:""`   // 回款订单号/三方代收单号(商户单号)
@@ -52,7 +72,6 @@ type UpdateLoanRepaymentTransactionsByIDRequest struct {
 type LoanRepaymentTransactionsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 	// 回款流水ID
-	DisbursementID   int64      `json:"disbursementID"`   // 关联放款单 loan_disbursements.id
 	ScheduleID       int64      `json:"scheduleID"`       // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
 	CollectChannelID int64      `json:"collectChannelID"` // 回款渠道(代收) loan_payment_channels.id
 	CollectOrderNo   string     `json:"collectOrderNo"`   // 回款订单号/三方代收单号(商户单号)

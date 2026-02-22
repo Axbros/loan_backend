@@ -9,7 +9,6 @@ import (
 type LoanRepaymentTransactions struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	DisbursementID   int64      `gorm:"column:disbursement_id;type:bigint(20);not null" json:"disbursementID"`        // 关联放款单 loan_disbursements.id
 	ScheduleID       int64      `gorm:"column:schedule_id;type:bigint(20)" json:"scheduleID"`                         // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
 	CollectChannelID int64      `gorm:"column:collect_channel_id;type:bigint(20)" json:"collectChannelID"`            // 回款渠道(代收) loan_payment_channels.id
 	CollectOrderNo   string     `gorm:"column:collect_order_no;type:varchar(128)" json:"collectOrderNo"`              // 回款订单号/三方代收单号(商户单号)
@@ -22,7 +21,9 @@ type LoanRepaymentTransactions struct {
 	AllocFee         int        `gorm:"column:alloc_fee;type:int(11);default:0;not null" json:"allocFee"`             // 本次分配到费用(分)
 	AllocPenalty     int        `gorm:"column:alloc_penalty;type:int(11);default:0;not null" json:"allocPenalty"`     // 本次分配到罚息(分)
 	Status           int        `gorm:"column:status;type:tinyint(4);default:1;not null" json:"status"`               // 流水状态：1成功 0失败 2冲正/撤销
-	Remark           string     `gorm:"column:remark;type:varchar(255)" json:"remark"`                                // 备注
+	VoucherFileName  string     `gorm:"column:voucher_file_name;type:varchar(64)" json:"voucherFileName"`
+	Remark           string     `gorm:"column:remark;type:varchar(255)" json:"remark"` // 备注
+	CreatedBy        uint64     `gorm:"column:created_by;type:bigint(20)" json:"createdBy"`
 }
 
 // LoanRepaymentTransactionsColumnNames Whitelist for custom query fields to prevent sql injection attacks

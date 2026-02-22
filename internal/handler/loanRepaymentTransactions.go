@@ -1,10 +1,17 @@
 package handler
 
 import (
+	"encoding/base64"
 	"errors"
-	"math"
-
+	"fmt"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"io"
+	"loan/internal/config"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/go-dev-frame/sponge/pkg/copier"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
@@ -34,6 +41,10 @@ type LoanRepaymentTransactionsHandler interface {
 	GetByCondition(c *gin.Context)
 	ListByIDs(c *gin.Context)
 	ListByLastID(c *gin.Context)
+	DetailByScheduleID(c *gin.Context)
+	History(c *gin.Context)
+	UploadVoucher(c *gin.Context)
+	GetVoucherBase64(c *gin.Context)
 }
 
 type loanRepaymentTransactionsHandler struct {
@@ -50,6 +61,175 @@ func NewLoanRepaymentTransactionsHandler() LoanRepaymentTransactionsHandler {
 	}
 }
 
+func (h *loanRepaymentTransactionsHandler) GetVoucherBase64(c *gin.Context) {
+	// 1. 获取请求参数（file_name）
+	fileName := c.Param("file_name") // 从URL查询参数获取，也可改用PostForm
+	if fileName == "" {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	// 2. 定义存储目录并清理格式（和上传接口保持一致）
+	storageDir := config.Get().Storage.Voucher
+	cleanStorageDir := filepath.Clean(storageDir)
+
+	// 3. 拼接文件完整路径并校验合法性（防止路径穿越）
+	filePath := filepath.Join(storageDir, fileName)
+	cleanFilePath := filepath.Clean(filePath)
+	if !strings.HasPrefix(cleanFilePath, cleanStorageDir) {
+		response.Error(c, ecode.ErrInvalidFilePath)
+		return
+	}
+
+	// 4. 检查文件是否存在
+	if _, err := os.Stat(cleanFilePath); os.IsNotExist(err) {
+		response.Error(c, ecode.FileNotFound) // 需新增文件不存在的错误码
+		return
+	} else if err != nil {
+		response.Error(c, ecode.ErrReadFile) // 需新增文件读取失败的错误码
+		return
+	}
+
+	// 5. 读取文件内容
+	fileContent, err := os.ReadFile(cleanFilePath)
+	if err != nil {
+		response.Error(c, ecode.ErrReadFile)
+		return
+	}
+
+	// 6. 将文件内容编码为Base64
+	base64Str := base64.StdEncoding.EncodeToString(fileContent)
+
+	// 7. （可选）生成带前缀的Base64（方便前端直接渲染图片）
+	// 获取文件后缀，拼接Data URI前缀
+	fileExt := strings.ToLower(filepath.Ext(fileName))
+	mimeType := ""
+	switch fileExt {
+	case ".png":
+		mimeType = "image/png"
+	case ".jpg", ".jpeg":
+		mimeType = "image/jpeg"
+	default:
+		mimeType = "application/octet-stream"
+	}
+	base64WithPrefix := fmt.Sprintf("data:%s;base64,%s", mimeType, base64Str)
+
+	// 8. 返回结果
+	response.Success(c, gin.H{
+		//"file_name":          fileName,
+		//"base64":             base64Str,        // 纯Base64编码
+		"base64_with_prefix": base64WithPrefix, // 带Data URI前缀的Base64（前端可直接用）
+		"file_size":          len(fileContent), // 文件大小
+	})
+}
+
+func (h *loanRepaymentTransactionsHandler) DetailByScheduleID(c *gin.Context) {
+	form := &types.DetailByScheduleIDRequest{}
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+	ctx := middleware.WrapCtx(c)
+	detail, err := h.iDao.DetailByScheduleID(ctx, form.ScheduleID)
+	if err != nil {
+		response.Error(c, ecode.ErrGetByConditionLoanRepaymentTransactions)
+		return
+	}
+	response.Success(c, detail)
+}
+
+// UploadVoucher 上传交易凭证图片
+func (h *loanRepaymentTransactionsHandler) UploadVoucher(c *gin.Context) {
+	// 1. 从表单获取上传的文件（表单字段名：voucher）
+	file, fileHeader, err := c.Request.FormFile("voucher")
+	if err != nil {
+		response.Error(c, ecode.InvalidParams) // 替换为你实际的参数错误码
+		return
+	}
+	// 优化：使用 defer 关闭上传文件流（原代码已有，但需确保执行）
+	defer func() {
+		_ = file.Close() // 忽略关闭错误，或根据业务记录日志
+	}()
+
+	// 2. 校验文件类型（仅允许 png/jpg/jpeg）
+	allowedExts := map[string]bool{
+		".png":  true,
+		".jpg":  true,
+		".jpeg": true,
+	}
+	fileExt := strings.ToLower(filepath.Ext(fileHeader.Filename))
+	if !allowedExts[fileExt] {
+		response.Error(c, ecode.UnsupportedFileType)
+		return
+	}
+
+	// 3. 确保存储目录存在（不存在则创建）
+	storageDir := config.Get().Storage.Voucher
+	cleanStorageDir := filepath.Clean(storageDir) // 此时变为 "storage/transaction-vouchers"
+
+	if err := os.MkdirAll(cleanStorageDir, 0755); err != nil {
+		response.Error(c, ecode.ErrCreateFileFolder)
+		return
+	}
+
+	// 4. 生成唯一文件名（避免覆盖）
+	uniqueID := uuid.New().String()
+	filename := fmt.Sprintf("%s%s", uniqueID, fileExt)
+	filePath := filepath.Join(storageDir, filename)
+
+	// 5. 创建本地文件（优化：先判断路径合法性，避免路径穿越）
+	if !strings.HasPrefix(filepath.Clean(filePath), cleanStorageDir) {
+		response.Error(c, ecode.ErrInvalidFilePath)
+		return
+	}
+	dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		response.Error(c, ecode.ErrSaveFile)
+		return
+	}
+	// 优化：安全关闭文件（先判断非 nil，避免 panic）
+	defer func() {
+		if dstFile != nil {
+			_ = dstFile.Close()
+		}
+	}()
+
+	// 6. 拷贝文件内容（优化：用 io.Copy 替代 ReadFrom，更通用）
+	_, err = io.Copy(dstFile, file)
+	if err != nil {
+		response.Error(c, ecode.ErrSaveFile)
+		return
+	}
+
+	// 7. 返回成功结果（相对路径供后续 POST 使用）
+	//relativePath := fmt.Sprintf("/storage/transaction-vouchers/%s", filename)
+	response.Success(c, gin.H{
+		"file_name": filename,
+		//"file_path": relativePath,
+		"size": fileHeader.Size,
+	})
+}
+
+func (h *loanRepaymentTransactionsHandler) History(c *gin.Context) {
+	form := &types.DetailByScheduleIDRequest{}
+	err := c.ShouldBindJSON(form)
+	if err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+	ctx := middleware.WrapCtx(c)
+
+	transactions, err := h.iDao.GetByScheduleID(ctx, form.ScheduleID)
+	if err != nil {
+		response.Error(c, ecode.ErrGetByConditionLoanRepaymentTransactions)
+		return
+	}
+	response.Success(c, transactions)
+}
+
 // Create a new loanRepaymentTransactions
 // @Summary Create a new loanRepaymentTransactions
 // @Description Creates a new loanRepaymentTransactions entity using the provided data in the request body.
@@ -61,6 +241,14 @@ func NewLoanRepaymentTransactionsHandler() LoanRepaymentTransactionsHandler {
 // @Router /api/v1/loanRepaymentTransactions [post]
 // @Security BearerAuth
 func (h *loanRepaymentTransactionsHandler) Create(c *gin.Context) {
+	ctx := middleware.WrapCtx(c)
+
+	uid, ok := getUIDFromClaims(c)
+	if !ok || uid == 0 {
+		response.Out(c, ecode.Unauthorized)
+		return
+	}
+
 	form := &types.CreateLoanRepaymentTransactionsRequest{}
 	err := c.ShouldBindJSON(form)
 	if err != nil {
@@ -77,7 +265,6 @@ func (h *loanRepaymentTransactionsHandler) Create(c *gin.Context) {
 	}
 	// Note: if copier.Copy cannot assign a value to a field, add it here
 
-	ctx := middleware.WrapCtx(c)
 	err = h.iDao.Create(ctx, loanRepaymentTransactions)
 	if err != nil {
 		logger.Error("Create error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))

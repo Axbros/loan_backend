@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"loan/internal/tool"
 	"math"
 	"strconv"
 	"strings"
@@ -13,9 +14,6 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/gin-gonic/gin"
-	"github.com/pquerna/otp"
-	"github.com/pquerna/otp/totp"
-
 	"github.com/go-dev-frame/sponge/pkg/copier"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
@@ -189,52 +187,10 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 	}
 
 	// 1) MFA 校验（不进事务）
+	// 1) MFA 校验（提取成函数）
 	otpCode := strings.TrimSpace(form.MfaCode)
-	if len(otpCode) != 6 {
-		logger.Warn("MFA验证码长度错误", logger.String("otp_code", otpCode), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.MFAOTPRequired)
-		return
-	}
-
-	dev, err := h.userDao.GetActivePrimaryMFADevice(ctx, uid)
-	if err != nil {
-		logger.Error("查询MFA主设备失败", logger.Err(err), logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InternalServerError)
-		return
-	}
-	if dev == nil {
-		logger.Warn("用户无激活的MFA主设备", logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.ErrGetByIDLoanMfaDevices)
-		return
-	}
-
-	secret, err := decryptSecretFromBytes(dev.SecretEnc)
-	if err != nil {
-		logger.Error("解密MFA密钥失败", logger.Err(err), logger.Uint64("device_id", dev.ID), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.ErrSecret)
-		return
-	}
-	secret = strings.TrimSpace(secret)
-	if secret == "" {
-		logger.Warn("MFA密钥为空", logger.Uint64("device_id", dev.ID), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.ErrSecret)
-		return
-	}
-
-	ok, err = totp.ValidateCustom(otpCode, secret, time.Now(), totp.ValidateOpts{
-		Period:    30,
-		Skew:      1,
-		Digits:    otp.DigitsSix,
-		Algorithm: otp.AlgorithmSHA1,
-	})
-	if err != nil {
-		logger.Error("校验MFA验证码失败", logger.Err(err), logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.ErrSecret)
-		return
-	}
-	if !ok {
-		logger.Warn("MFA验证码无效", logger.String("otp_code", otpCode), logger.Uint64("uid", uid), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidOTP)
+	ok, dev, err := tool.ValidateMFA(c, uid, otpCode)
+	if err != nil || !ok {
 		return
 	}
 

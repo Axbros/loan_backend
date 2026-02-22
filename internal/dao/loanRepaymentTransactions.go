@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -35,6 +36,9 @@ type LoanRepaymentTransactionsDao interface {
 	CreateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanRepaymentTransactions) (uint64, error)
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanRepaymentTransactions) error
+
+	DetailByScheduleID(ctx context.Context, id uint64) (*types.RepaymentScheduleDetail, error)
+	GetByScheduleID(ctx context.Context, id uint64) ([]*model.LoanRepaymentTransactions, error)
 }
 
 type loanRepaymentTransactionsDao struct {
@@ -55,6 +59,61 @@ func NewLoanRepaymentTransactionsDao(db *gorm.DB, xCache cache.LoanRepaymentTran
 	}
 }
 
+func (d *loanRepaymentTransactionsDao) GetByScheduleID(ctx context.Context, id uint64) ([]*model.LoanRepaymentTransactions, error) {
+	var results []*model.LoanRepaymentTransactions
+	err := d.db.WithContext(ctx).Where("schedule_id = ?", id).Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func (d *loanRepaymentTransactionsDao) DetailByScheduleID(ctx context.Context, id uint64) (*types.RepaymentScheduleDetail, error) {
+	// 初始化结果指针
+	details := &types.RepaymentScheduleDetail{}
+
+	// 原生 SQL 语句（完全手动控制，无隐式排序）
+	rawSQL := `
+		SELECT 
+			b.first_name, 
+			b.second_name, 
+			b.age, 
+			b.gender,
+			b.id_type,
+			b.id_number, 
+			b.application_amount, 
+			d.net_amount, 
+			d.payout_order_no,
+			d.disbursed_at,
+			s.due_date, 
+			s.paid_total, 
+			s.total_due, 
+			c.name, 
+			c.payout_fee_rate
+		FROM loan_repayment_schedules s 
+		INNER JOIN loan_disbursements d ON s.disbursement_id = d.id 
+		INNER JOIN loan_baseinfo b ON d.baseinfo_id = b.id 
+		INNER JOIN loan_payment_channels c ON d.payout_channel_id = c.id 
+		WHERE s.id = ? 
+		LIMIT 1
+	`
+
+	// 执行原生 SQL，绑定参数和结果
+	if err := d.db.WithContext(ctx).Raw(rawSQL, id).Scan(details).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err // 记录不存在
+		}
+		return nil, err // 其他查询错误
+	}
+
+	// 校验结果是否为空（部分场景下 Scan 不会返回 RecordNotFound）
+	if details.IDNumber == "" && details.PayoutOrderNo == "" {
+		return nil, gorm.ErrRecordNotFound
+	}
+
+	return details, nil
+}
 func (d *loanRepaymentTransactionsDao) deleteCache(ctx context.Context, id uint64) error {
 	if d.cache != nil {
 		return d.cache.Del(ctx, id)
@@ -97,9 +156,6 @@ func (d *loanRepaymentTransactionsDao) updateDataByID(ctx context.Context, db *g
 
 	update := map[string]interface{}{}
 
-	if table.DisbursementID != 0 {
-		update["disbursement_id"] = table.DisbursementID
-	}
 	if table.ScheduleID != 0 {
 		update["schedule_id"] = table.ScheduleID
 	}

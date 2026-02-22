@@ -83,5 +83,8 @@ jaeger:
 authorization:
   key: 53616c7465645f5f7e96946f88f816586b0a8055bc18b6fb99c3a75e77620cf0
 
+storage:
+  voucher: ./storage/transaction-vouchers
+
 
 

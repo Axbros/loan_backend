@@ -41,6 +41,7 @@ type Config struct {
 	NacosRd       NacosRd       `yaml:"nacosRd" json:"nacosRd"`
 	Redis         Redis         `yaml:"redis" json:"redis"`
 	Authorization Authorization `yaml:"authorization" json:"authorization"`
+	Storage       Storage       `yaml:"storage" json:"storage"`
 }
 
 type Consul struct {
@@ -183,4 +184,8 @@ type HTTP struct {
 
 type Authorization struct {
 	Key string `yaml:"key" json:"key"`
+}
+
+type Storage struct {
+	Voucher string `yaml:"voucher" json:"voucher"`
 }
