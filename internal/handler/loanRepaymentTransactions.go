@@ -5,19 +5,19 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"io"
-	"loan/internal/config"
-	"math"
-	"os"
-	"path/filepath"
-	"strings"
-
 	"github.com/go-dev-frame/sponge/pkg/copier"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"github.com/go-dev-frame/sponge/pkg/logger"
 	"github.com/go-dev-frame/sponge/pkg/utils"
+	"github.com/google/uuid"
+	"io"
+	"loan/internal/config"
+	"loan/internal/tool"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"loan/internal/cache"
 	"loan/internal/dao"
@@ -257,7 +257,18 @@ func (h *loanRepaymentTransactionsHandler) Create(c *gin.Context) {
 		return
 	}
 
+	otpCode := strings.TrimSpace(form.MfaCode)
+	ok, err = tool.ValidateMFA(c, uid, otpCode)
+	if err != nil || !ok {
+		logger.Warn("ValidateMFA error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		return
+	}
+
 	loanRepaymentTransactions := &model.LoanRepaymentTransactions{}
+	loanRepaymentTransactions.CollectOrderNo = generateOrderNo("PI")
+	loanRepaymentTransactions.CreatedBy = uid
+	loanRepaymentTransactions.PayMethod = "IMPORT"
+	
 	err = copier.Copy(loanRepaymentTransactions, form)
 	if err != nil {
 		response.Error(c, ecode.ErrCreateLoanRepaymentTransactions)

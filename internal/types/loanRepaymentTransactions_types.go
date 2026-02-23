@@ -12,17 +12,17 @@ var _ time.Time
 
 // CreateLoanRepaymentTransactionsRequest request params
 type CreateLoanRepaymentTransactionsRequest struct {
-	ScheduleID int64 `json:"scheduleID" binding:""` // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
-
-	PayAmount       int    `json:"payAmount" binding:""`      // 本次回款金额(分)
-	PayMethod       string `json:"payMethod" binding:""`      // 回款方式(如 BANK_TRANSFER/WALLET)
-	AllocPrincipal  int    `json:"allocPrincipal" binding:""` // 本次分配到本金(分)
-	AllocInterest   int    `json:"allocInterest" binding:""`  // 本次分配到利息(分)
-	AllocFee        int    `json:"allocFee" binding:""`       // 本次分配到费用(分)
-	AllocPenalty    int    `json:"allocPenalty" binding:""`   // 本次分配到罚息(分)
-	VoucherFileName string `json:"voucherFileName" binding:""`
-	MfaCode         string `json:"mfaCode" binding:""`
-	Remark          string `json:"remark" binding:""` // 备注
+	ScheduleID       int64  `json:"scheduleID" binding:""` // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
+	CollectChannelID int64  `json:"collectChannelID" binding:""`
+	PayAmount        int    `json:"payAmount" binding:""`      // 本次回款金额(分)
+	PayMethod        string `json:"payMethod" binding:""`      // 回款方式(如 BANK_TRANSFER/WALLET)
+	AllocPrincipal   int    `json:"allocPrincipal" binding:""` // 本次分配到本金(分)
+	AllocInterest    int    `json:"allocInterest" binding:""`  // 本次分配到利息(分)
+	AllocFee         int    `json:"allocFee" binding:""`       // 本次分配到费用(分)
+	AllocPenalty     int    `json:"allocPenalty" binding:""`   // 本次分配到罚息(分)
+	VoucherFileName  string `json:"voucherFileName" binding:""`
+	MfaCode          string `json:"mfaCode" binding:""`
+	Remark           string `json:"remark" binding:""` // 备注
 }
 
 type DetailByScheduleIDRequest struct {
@@ -87,6 +87,25 @@ type LoanRepaymentTransactionsObjDetail struct {
 	Remark           string     `json:"remark"`           // 备注
 	CreatedAt        *time.Time `json:"createdAt"`        // 创建时间
 	UpdatedAt        *time.Time `json:"updatedAt"`        // 更新时间
+}
+
+type LoanRepaymentTransactionsHistory struct {
+	ID                 uint64     `json:"id"`                 // 流水ID（对应t.id）
+	CollectOrderNo     string     `json:"collectOrderNo"`     // 回款订单号（对应t.collect_order_no）
+	PayAmount          int        `json:"payAmount"`          // 回款金额（对应t.pay_amount）
+	AllocPrincipal     int        `json:"allocPrincipal"`     // 分配本金（对应t.alloc_principal）
+	AllocInterest      int        `json:"allocInterest"`      // 分配利息（对应t.alloc_interest）
+	AllocFee           int        `json:"allocFee"`           // 分配费用（对应t.alloc_fee）
+	AllocPenalty       int        `json:"allocPenalty"`       // 分配罚息（对应t.alloc_penalty）
+	Status             int        `json:"status"`             // 状态（对应t.status）
+	Remark             string     `json:"remark"`             // 备注（对应t.remark）
+	VoucherFileName    string     `json:"voucherFileName"`    // 凭证文件名（对应t.voucher_file_name）
+	CreatedAt          *time.Time `json:"createdAt"`          // 创建时间（对应t.created_at）
+	CollectChannelName string     `json:"collectChannelName"` // 回款渠道名称（对应c.name）
+	CreatedBy          string     `json:"createdBy"`          // 创建人用户名（对应u.username）
+	// 保留原有关联字段（如果需要）
+	ScheduleID       int64 `json:"scheduleID"`       // 关联期次ID
+	CollectChannelID int64 `json:"collectChannelID"` // 回款渠道ID
 }
 
 // CreateLoanRepaymentTransactionsReply only for api docs

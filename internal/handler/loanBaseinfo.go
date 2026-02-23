@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"loan/internal/tool"
@@ -189,8 +188,9 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 	// 1) MFA 校验（不进事务）
 	// 1) MFA 校验（提取成函数）
 	otpCode := strings.TrimSpace(form.MfaCode)
-	ok, dev, err := tool.ValidateMFA(c, uid, otpCode)
+	ok, err = tool.ValidateMFA(c, uid, otpCode)
 	if err != nil || !ok {
+		logger.Warn("ValidateMFA error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
 		return
 	}
 
@@ -323,7 +323,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 				PayoutChannelID:      form.PaymentChannelID,
 				AuditedAt:            currentTime,
 				DisbursedAt:          currentTime,
-				PayoutOrderNo:        generateOrderNo(), // 建议数据库层加唯一索引保证不重复
+				PayoutOrderNo:        generateOrderNo("PO"), // 建议数据库层加唯一索引保证不重复
 			}
 
 			if _, err := h.disbursmentDao.CreateByTx(ctx, tx, disbursmentRecord); err != nil {
@@ -409,19 +409,6 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		response.Error(c, ecode.InternalServerError)
 		return
 	}
-
-	// 10) commit 成功后再 touch last_used_at
-	go func(deviceID uint64) {
-		// 创建独立上下文：脱离 gin 请求的 ctx，设置超时（防止无限阻塞）
-		asyncCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel() // 确保超时/执行完后释放资源
-
-		// 使用独立的 asyncCtx 执行数据库操作
-		if err := h.userDao.TouchMFADeviceLastUsedAt(asyncCtx, deviceID); err != nil {
-			logger.Warn("更新MFA设备最后使用时间失败", logger.Err(err), logger.Uint64("device_id", deviceID))
-		}
-	}(dev.ID) // 不再传递 gin 的 ctx
-
 	response.Success(c, gin.H{})
 }
 
@@ -880,7 +867,7 @@ func getCurrentTime() *time.Time {
 	return &now
 }
 
-func generateOrderNo() string {
+func generateOrderNo(prefix string) string {
 	// 1. 获取当前时间，格式化为 年月日时分秒（例如：20260212153045）
 	now := time.Now()
 	timeStr := now.Format("20060102150405") // Go的时间格式化是固定参考时间：2006-01-02 15:04:05
@@ -890,7 +877,7 @@ func generateOrderNo() string {
 	randomNum := now.Nanosecond() % 1000 // 取纳秒的后3位，范围 0-999
 
 	// 3. 拼接订单号：PO + 时间字符串 + 补零后的3位随机数
-	orderNo := fmt.Sprintf("PO%s%03d", timeStr, randomNum)
+	orderNo := fmt.Sprintf("%s%s%03d", prefix, timeStr, randomNum)
 
 	return orderNo
 }

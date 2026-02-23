@@ -38,7 +38,7 @@ type LoanRepaymentTransactionsDao interface {
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanRepaymentTransactions) error
 
 	DetailByScheduleID(ctx context.Context, id uint64) (*types.RepaymentScheduleDetail, error)
-	GetByScheduleID(ctx context.Context, id uint64) ([]*model.LoanRepaymentTransactions, error)
+	GetByScheduleID(ctx context.Context, id uint64) ([]*types.LoanRepaymentTransactionsHistory, error)
 }
 
 type loanRepaymentTransactionsDao struct {
@@ -59,10 +59,43 @@ func NewLoanRepaymentTransactionsDao(db *gorm.DB, xCache cache.LoanRepaymentTran
 	}
 }
 
-func (d *loanRepaymentTransactionsDao) GetByScheduleID(ctx context.Context, id uint64) ([]*model.LoanRepaymentTransactions, error) {
-	var results []*model.LoanRepaymentTransactions
-	err := d.db.WithContext(ctx).Where("schedule_id = ?", id).Find(&results).Error
+func (d *loanRepaymentTransactionsDao) GetByScheduleID(ctx context.Context, id uint64) ([]*types.LoanRepaymentTransactionsHistory, error) {
+	var results []*types.LoanRepaymentTransactionsHistory
+
+	// 构建多表关联查询：完全匹配你提供的SQL
+	err := d.db.WithContext(ctx).
+		// 指定主表
+		Table("loan_repayment_transactions t").
+		// 关联回款渠道表
+		Joins("INNER JOIN loan_payment_channels c ON t.collect_channel_id = c.id").
+		// 关联用户表
+		Joins("INNER JOIN loan_users u ON t.created_by = u.id").
+		// 指定查询字段（AS 别名匹配结构体字段，gorm会自动映射下划线→驼峰）
+		Select(`
+			t.id,
+			t.collect_order_no,
+			t.pay_amount,
+			t.alloc_principal,
+			t.alloc_interest,
+			t.alloc_fee,
+			t.alloc_penalty,
+			t.status,
+			t.remark,
+			t.voucher_file_name,
+			t.created_at,
+			c.name AS collect_channel_name,  -- 别名匹配结构体的CollectChannelName
+			u.username AS created_by,        -- 别名匹配结构体的CreatedBy
+			t.schedule_id,                   -- 保留原有关联字段（如果需要）
+			t.collect_channel_id            -- 保留原有关联字段（如果需要）
+		`).
+		// 查询条件：期次ID
+		Where("t.schedule_id = ?", id).
+		// 映射到结果结构体
+		Find(&results).Error
+
 	if err != nil {
+		// 日志记录（建议补充）
+		// logger.Error("查询回款流水失败", logger.Err(err), logger.Uint64("schedule_id", id))
 		return nil, err
 	}
 

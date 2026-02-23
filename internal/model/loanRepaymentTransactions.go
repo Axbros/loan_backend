@@ -26,7 +26,6 @@ type LoanRepaymentTransactions struct {
 	CreatedBy        uint64     `gorm:"column:created_by;type:bigint(20)" json:"createdBy"`
 }
 
-// LoanRepaymentTransactionsColumnNames Whitelist for custom query fields to prevent sql injection attacks
 var LoanRepaymentTransactionsColumnNames = map[string]bool{
 	"id":                 true,
 	"created_at":         true,
