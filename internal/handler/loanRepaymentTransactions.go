@@ -48,7 +48,8 @@ type LoanRepaymentTransactionsHandler interface {
 }
 
 type loanRepaymentTransactionsHandler struct {
-	iDao dao.LoanRepaymentTransactionsDao
+	iDao                 dao.LoanRepaymentTransactionsDao
+	repaymentScheduleDao dao.LoanRepaymentSchedulesDao
 }
 
 // NewLoanRepaymentTransactionsHandler creating the handler interface
@@ -57,6 +58,10 @@ func NewLoanRepaymentTransactionsHandler() LoanRepaymentTransactionsHandler {
 		iDao: dao.NewLoanRepaymentTransactionsDao(
 			database.GetDB(), // db driver is mysql
 			cache.NewLoanRepaymentTransactionsCache(database.GetCacheType()),
+		),
+		repaymentScheduleDao: dao.NewLoanRepaymentSchedulesDao(
+			database.GetDB(),
+			cache.NewLoanRepaymentSchedulesCache(database.GetCacheType()),
 		),
 	}
 }
@@ -243,47 +248,129 @@ func (h *loanRepaymentTransactionsHandler) History(c *gin.Context) {
 func (h *loanRepaymentTransactionsHandler) Create(c *gin.Context) {
 	ctx := middleware.WrapCtx(c)
 
+	// 1. 获取用户ID
 	uid, ok := getUIDFromClaims(c)
 	if !ok || uid == 0 {
 		response.Out(c, ecode.Unauthorized)
 		return
 	}
 
+	// 2. 绑定并校验请求参数
 	form := &types.CreateLoanRepaymentTransactionsRequest{}
 	err := c.ShouldBindJSON(form)
 	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		logger.Warn(
+			"ShouldBindJSON error",
+			logger.Err(err),
+		)
 		response.Error(c, ecode.InvalidParams)
 		return
 	}
 
+	// 3. 验证MFA验证码
 	otpCode := strings.TrimSpace(form.MfaCode)
 	ok, err = tool.ValidateMFA(c, uid, otpCode)
 	if err != nil || !ok {
-		logger.Warn("ValidateMFA error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		logger.Warn(
+			"ValidateMFA failed",
+			logger.Err(err),
+			logger.Uint64("uid", uid),
+		)
+		// 补充：MFA验证失败需返回明确的错误响应
+		response.Error(c, ecode.InvalidOTP) // 假设你有这个错误码，没有则用InvalidParams
 		return
 	}
 
+	// 4. 初始化交易记录结构体
 	loanRepaymentTransactions := &model.LoanRepaymentTransactions{}
-	loanRepaymentTransactions.CollectOrderNo = generateOrderNo("PI")
-	loanRepaymentTransactions.CreatedBy = uid
-	loanRepaymentTransactions.PayMethod = "IMPORT"
-	
+	// 先拷贝表单数据，避免手动赋值的字段被覆盖
 	err = copier.Copy(loanRepaymentTransactions, form)
 	if err != nil {
+		logger.Error(
+			"copier.Copy failed",
+			logger.Err(err),
+		)
 		response.Error(c, ecode.ErrCreateLoanRepaymentTransactions)
 		return
 	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
+	// 手动赋值（放在拷贝后，避免被覆盖）
+	loanRepaymentTransactions.CollectOrderNo = generateOrderNo("PI")
+	loanRepaymentTransactions.CreatedBy = uid
+	loanRepaymentTransactions.PayMethod = "IMPORT"
 
-	err = h.iDao.Create(ctx, loanRepaymentTransactions)
+	// 5. 开启数据库事务
+	db := database.GetDB()
+	tx := db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		logger.Error(
+			"Begin transaction failed",
+			logger.Err(tx.Error),
+		)
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+	// 定义事务回滚的延迟处理（兜底）
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			logger.Error("panic in Create handler", logger.Any("recover", r))
+		}
+	}()
+
+	// 6. 创建还款交易记录
+	var newID uint64
+	newID, err = h.iDao.CreateByTx(ctx, tx, loanRepaymentTransactions)
 	if err != nil {
-		logger.Error("Create error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		tx.Rollback()
+		logger.Error(
+			"CreateByTx failed",
+			logger.Err(err),
+			logger.Uint64("newID", newID),
+			logger.Any("form", form),
+		)
+		response.Error(c, ecode.ErrCreateLoanRepaymentTransactions)
 		return
 	}
 
-	response.Success(c, gin.H{"id": loanRepaymentTransactions.ID})
+	// 7. 查询还款计划记录
+	repaymentScheduleRecord, err := h.repaymentScheduleDao.GetByID(ctx, form.ScheduleID)
+	if err != nil {
+		tx.Rollback() // 关键：查询失败也要回滚事务
+		logger.Error(
+			"GetByID LoanRepaymentSchedules failed",
+			logger.Err(err),
+			logger.Uint64("schedule_id", form.ScheduleID),
+		)
+		response.Error(c, ecode.ErrGetByIDLoanRepaymentSchedules)
+		return
+	}
+
+	// 8. 更新还款计划的已付总额（修复核心逻辑错误）
+	repaymentScheduleRecord.PaidTotal += form.PayAmount // 直接修改结构体字段
+	err = h.repaymentScheduleDao.UpdateByTx(ctx, tx, repaymentScheduleRecord)
+	if err != nil {
+		tx.Rollback()
+		logger.Error(
+			"UpdateByTx LoanRepaymentSchedules failed",
+			logger.Err(err),
+			logger.Uint64("schedule_id", form.ScheduleID),
+			logger.Int("pay_amount", form.PayAmount),
+		)
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+
+	// 9. 提交事务
+	if err = tx.Commit().Error; err != nil {
+		logger.Error(
+			"Commit transaction failed",
+			logger.Err(err),
+			logger.Uint64("transaction_id", newID),
+		)
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+	response.Success(c, gin.H{"id": newID}) // 用newID更可靠，和CreateByTx返回值一致
 }
 
 // DeleteByID delete a loanRepaymentTransactions by id

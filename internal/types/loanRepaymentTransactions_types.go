@@ -12,7 +12,7 @@ var _ time.Time
 
 // CreateLoanRepaymentTransactionsRequest request params
 type CreateLoanRepaymentTransactionsRequest struct {
-	ScheduleID       int64  `json:"scheduleID" binding:""` // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
+	ScheduleID       uint64 `json:"scheduleID" binding:""` // 关联期次 loan_repayment_schedules.id(可空：先入账后分配/未分期)
 	CollectChannelID int64  `json:"collectChannelID" binding:""`
 	PayAmount        int    `json:"payAmount" binding:""`      // 本次回款金额(分)
 	PayMethod        string `json:"payMethod" binding:""`      // 回款方式(如 BANK_TRANSFER/WALLET)
