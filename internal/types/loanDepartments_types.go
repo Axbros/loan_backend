@@ -44,6 +44,7 @@ type LoanDepartmentsObjTable struct {
 	AdminUser string     `json:"adminUser"`
 	Status    int        `json:"status"`
 	CreatedAt *time.Time `json:"createdAt"`
+	UserCount int64      `json:"userCount"`
 }
 
 // CreateLoanDepartmentsReply only for api docs

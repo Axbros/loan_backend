@@ -178,7 +178,11 @@ func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Par
 	base := d.db.WithContext(ctx).
 		Table("loan_departments AS d").
 		Joins("INNER JOIN loan_users AS u ON d.admin_user_id = u.id").
+		Joins("LEFT JOIN loan_users lu ON lu.department_id = d.id").
 		Where("d.deleted_at IS NULL")
+
+	// select 里用 COUNT(lu.id) AS user_count
+	// 并且 Group("d.id, d.name, u.username, d.status, d.created_at")
 
 	// apply dynamic conditions
 	if queryStr != "" {
@@ -201,7 +205,8 @@ func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Par
 	order, limit, offset := params.ConvertToPage()
 
 	err = base.
-		Select(`d.id, d.name, u.username AS admin_user, d.status, d.created_at`).
+		Select(`d.id, d.name, u.username AS admin_user, d.status, d.created_at,COUNT(lu.id) AS user_count`).
+		Group("d.id, d.name, u.username, d.status, d.created_at").
 		Order(order).
 		Limit(limit).
 		Offset(offset).
