@@ -29,6 +29,12 @@ type LoanRolePermissionsObjDetail struct {
 	UpdatedAt *time.Time `json:"updatedAt"` // 更新时间
 }
 
+type LoanRolePermissionsObjTable struct {
+	ID   uint64 `json:"id"` // convert to uint64 id
+	Name string `json:"name"`
+	Code string `json:"code"`
+}
+
 // CreateLoanRolePermissionsReply only for api docs
 type CreateLoanRolePermissionsReply struct {
 	Code int    `json:"code"` // return code

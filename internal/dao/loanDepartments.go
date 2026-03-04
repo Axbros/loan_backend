@@ -3,6 +3,7 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -25,8 +26,7 @@ type LoanDepartmentsDao interface {
 	DeleteByID(ctx context.Context, id uint64) error
 	UpdateByID(ctx context.Context, table *model.LoanDepartments) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanDepartments, error)
-	GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanDepartments, int64, error)
-
+	GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanDepartmentsObjTable, int64, error)
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanDepartments, error)
 	GetByIDs(ctx context.Context, ids []uint64) (map[uint64]*model.LoanDepartments, error)
@@ -100,8 +100,8 @@ func (d *loanDepartmentsDao) updateDataByID(ctx context.Context, db *gorm.DB, ta
 	if table.Name != "" {
 		update["name"] = table.Name
 	}
-	if table.ParentID != 0 {
-		update["parent_id"] = table.ParentID
+	if table.AdminUserID != 0 {
+		update["admin_user_id"] = table.AdminUserID
 	}
 	if table.Status != 0 {
 		update["status"] = table.Status
@@ -166,31 +166,51 @@ func (d *loanDepartmentsDao) GetByID(ctx context.Context, id uint64) (*model.Loa
 
 // GetByColumns get a paginated list of loanDepartmentss by custom conditions.
 // For more details, please refer to https://go-sponge.com/component/data/custom-page-query.html
-func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanDepartments, int64, error) {
-	queryStr, args, err := params.ConvertToGormConditions(query.WithWhitelistNames(model.LoanDepartmentsColumnNames))
+func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanDepartmentsObjTable, int64, error) {
+	queryStr, args, err := params.ConvertToGormConditions(
+		query.WithWhitelistNames(model.LoanDepartmentsColumnNames),
+	)
 	if err != nil {
 		return nil, 0, errors.New("query params error: " + err.Error())
 	}
 
+	// base query: loan_departments as d
+	base := d.db.WithContext(ctx).
+		Table("loan_departments AS d").
+		Joins("INNER JOIN loan_users AS u ON d.admin_user_id = u.id").
+		Where("d.deleted_at IS NULL")
+
+	// apply dynamic conditions
+	if queryStr != "" {
+		base = base.Where(queryStr, args...)
+	}
+
 	var total int64
-	if params.Sort != "ignore count" { // determine if count is required
-		err = d.db.WithContext(ctx).Model(&model.LoanDepartments{}).Where(queryStr, args...).Count(&total).Error
+	if params.Sort != "ignore count" {
+		// 注意：这里 Count 需要基于 d 表，否则 join 可能影响计数（虽然你这个 1-1 一般没问题）
+		err = base.Select("d.id").Count(&total).Error
 		if err != nil {
 			return nil, 0, err
 		}
 		if total == 0 {
-			return nil, total, nil
+			return nil, 0, nil
 		}
 	}
 
-	records := []*model.LoanDepartments{}
+	records := make([]*types.LoanDepartmentsObjTable, 0)
 	order, limit, offset := params.ConvertToPage()
-	err = d.db.WithContext(ctx).Order(order).Limit(limit).Offset(offset).Where(queryStr, args...).Find(&records).Error
+
+	err = base.
+		Select(`d.id, d.name, u.username AS admin_user, d.status, d.created_at`).
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Scan(&records).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return records, total, err
+	return records, total, nil
 }
 
 // DeleteByIDs batch delete loanDepartments by ids

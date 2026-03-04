@@ -230,15 +230,14 @@ func (h *loanRolePermissionsHandler) List(c *gin.Context) {
 		return
 	}
 
-	data, err := convertLoanRolePermissionss(loanRolePermissionss)
 	if err != nil {
 		response.Error(c, ecode.ErrListLoanRolePermissions)
 		return
 	}
 
 	response.Success(c, gin.H{
-		"loanRolePermissionss": data,
-		"total":                total,
+		"records": loanRolePermissionss,
+		"total":   total,
 	})
 }
 

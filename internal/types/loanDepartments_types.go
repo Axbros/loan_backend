@@ -12,29 +12,38 @@ var _ time.Time
 
 // CreateLoanDepartmentsRequest request params
 type CreateLoanDepartmentsRequest struct {
-	Name     string `json:"name" binding:""`
-	ParentID int64  `json:"parentID" binding:""`
-	Status   int    `json:"status" binding:""`
+	Name        string `json:"name" binding:""`
+	AdminUserID int64  `json:"admin_user_id" binding:""`
+	Status      int    `json:"status" binding:""`
 }
 
 // UpdateLoanDepartmentsByIDRequest request params
 type UpdateLoanDepartmentsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
-	Name     string `json:"name" binding:""`
-	ParentID int64  `json:"parentID" binding:""`
-	Status   int    `json:"status" binding:""`
+	Name        string `json:"name" binding:""`
+	AdminUserID int64  `json:"admin_user_id" binding:""`
+	Status      int    `json:"status" binding:""`
 }
 
 // LoanDepartmentsObjDetail detail
 type LoanDepartmentsObjDetail struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
+	Name        string     `json:"name"`
+	AdminUserID int64      `json:"admin_user_id"`
+	Status      int        `json:"status"`
+	CreatedAt   *time.Time `json:"createdAt"`
+	UpdatedAt   *time.Time `json:"updatedAt"`
+}
+
+type LoanDepartmentsObjTable struct {
+	ID uint64 `json:"id"` // convert to uint64 id
+
 	Name      string     `json:"name"`
-	ParentID  int64      `json:"parentID"`
+	AdminUser string     `json:"adminUser"`
 	Status    int        `json:"status"`
 	CreatedAt *time.Time `json:"createdAt"`
-	UpdatedAt *time.Time `json:"updatedAt"`
 }
 
 // CreateLoanDepartmentsReply only for api docs

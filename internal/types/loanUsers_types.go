@@ -36,12 +36,10 @@ type UpdateLoanUsersByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id
 
 	Username     string `json:"username" binding:""`
-	PasswordHash string `json:"passwordHash" binding:""`
 	DepartmentID int64  `json:"departmentID" binding:""`
 	MfaEnabled   int    `json:"mfaEnabled" binding:""`
 	MfaRequired  int    `json:"mfaRequired" binding:""`
 	Status       int    `json:"status" binding:""`
-	ShareCode    string `json:"shareCode" binding:""` // 分享邀请码(用于生成分享链接，建议唯一)
 }
 
 // LoanUsersObjDetail detail
@@ -63,6 +61,20 @@ type LoanUsersObjSimple struct {
 	ID uint64 `json:"id"` // convert to uint64 id
 
 	Username string `json:"username"`
+}
+
+type LoanUsersObjTable struct {
+	ID         uint64 `json:"id" gorm:"column:id"`
+	Username   string `json:"username" gorm:"column:username"`
+	Department string `json:"department" gorm:"column:department"`
+
+	MfaEnabled  int `json:"mfaEnabled" gorm:"column:mfa_enabled"`
+	MfaRequired int `json:"mfaRequired" gorm:"column:mfa_required"`
+	Status      int `json:"status" gorm:"column:status"`
+
+	CreatedAt *time.Time `json:"createdAt" gorm:"column:created_at"`
+	UpdatedAt *time.Time `json:"updatedAt" gorm:"column:updated_at"`
+	ShareCode string     `json:"shareCode" gorm:"column:share_code"`
 }
 
 // CreateLoanUsersReply only for api docs

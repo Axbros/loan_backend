@@ -78,7 +78,6 @@ func (d *loanDisbursementsDao) GetOverviewList(
 	var (
 		list  []*types.LoanDisbursedList
 		total int64
-
 		// 存储动态条件和参数
 		whereConditions []string
 		whereArgs       []interface{}

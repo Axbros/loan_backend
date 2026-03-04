@@ -3,6 +3,9 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
+	"regexp"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -25,7 +28,7 @@ type LoanRolePermissionsDao interface {
 	DeleteByID(ctx context.Context, id uint64) error
 	UpdateByID(ctx context.Context, table *model.LoanRolePermissions) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanRolePermissions, error)
-	GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanRolePermissions, int64, error)
+	GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanRolePermissionsObjTable, int64, error)
 
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanRolePermissions, error)
@@ -161,33 +164,86 @@ func (d *loanRolePermissionsDao) GetByID(ctx context.Context, id uint64) (*model
 	return nil, err
 }
 
-// GetByColumns get a paginated list of loanRolePermissionss by custom conditions.
-// For more details, please refer to https://go-sponge.com/component/data/custom-page-query.html
-func (d *loanRolePermissionsDao) GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanRolePermissions, int64, error) {
+func (d *loanRolePermissionsDao) GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanRolePermissionsObjTable, int64, error) {
+	// 1) 生成 where 条件（白名单仍用 LoanRolePermissions 表的列）
 	queryStr, args, err := params.ConvertToGormConditions(query.WithWhitelistNames(model.LoanRolePermissionsColumnNames))
 	if err != nil {
 		return nil, 0, errors.New("query params error: " + err.Error())
 	}
 
+	// 2) 把 where 里的列名加上 r. 前缀（避免 join 后列名歧义）
+	//    例：role_id = ?  ->  r.role_id = ?
+	queryStr = prefixWhereColumns(queryStr, model.LoanRolePermissionsColumnNames, "r")
+
+	// 3) 构造基础 join 查询（用于 count 和 list）
+	base := d.db.WithContext(ctx).
+		Table("loan_role_permissions AS r").
+		Joins("INNER JOIN loan_permissions p ON r.permission_id = p.id").
+		Where(queryStr, args...).Where("r.deleted_at IS NULL")
+
+	// 4) count
 	var total int64
-	if params.Sort != "ignore count" { // determine if count is required
-		err = d.db.WithContext(ctx).Model(&model.LoanRolePermissions{}).Where(queryStr, args...).Count(&total).Error
-		if err != nil {
+	if params.Sort != "ignore count" {
+		if err := base.Count(&total).Error; err != nil {
 			return nil, 0, err
 		}
 		if total == 0 {
-			return nil, total, nil
+			return nil, 0, nil
 		}
 	}
 
-	records := []*model.LoanRolePermissions{}
+	// 5) list
+	records := make([]*types.LoanRolePermissionsObjTable, 0)
 	order, limit, offset := params.ConvertToPage()
-	err = d.db.WithContext(ctx).Order(order).Limit(limit).Offset(offset).Where(queryStr, args...).Find(&records).Error
+
+	// 可选：如果你的 order 里是 "id desc" 这种，建议也加前缀
+	// 否则可能出现 “column id is ambiguous”
+	order = prefixOrder(order)
+
+	err = base.
+		Select("r.id AS id, p.name AS name, p.code AS code").
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Scan(&records).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return records, total, err
+	return records, total, nil
+}
+
+// prefixWhereColumns 把 where 里的列名替换成 alias.col（只替换白名单列）
+func prefixWhereColumns(where string, cols map[string]bool, alias string) string {
+	for c := range cols {
+		re := regexp.MustCompile(`\b` + regexp.QuoteMeta(c) + `\b`)
+		where = re.ReplaceAllString(where, alias+"."+c)
+	}
+	return where
+}
+
+// prefixOrder 给 order 加前缀（简单处理常见场景）
+// 你如果允许按 name/code 排序，这里也可以扩展映射到 p.name / p.code
+func prefixOrder(order string) string {
+	o := strings.TrimSpace(order)
+	if o == "" {
+		return o
+	}
+
+	// 常见：id desc / id asc
+	// 让它变成 r.id desc
+	if strings.HasPrefix(o, "id ") || o == "id" {
+		return "r." + o
+	}
+	// 如果你的 params 允许 name/code 排序，可以加：
+	if strings.HasPrefix(o, "name ") || o == "name" {
+		return "p." + o
+	}
+	if strings.HasPrefix(o, "code ") || o == "code" {
+		return "p." + o
+	}
+
+	return o
 }
 
 // DeleteByIDs batch delete loanRolePermissions by ids

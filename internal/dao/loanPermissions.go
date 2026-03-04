@@ -3,14 +3,15 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
 	"time"
-
-	"golang.org/x/sync/singleflight"
-	"gorm.io/gorm"
 
 	"github.com/go-dev-frame/sponge/pkg/logger"
 	"github.com/go-dev-frame/sponge/pkg/sgorm/query"
 	"github.com/go-dev-frame/sponge/pkg/utils"
+	"golang.org/x/sync/singleflight"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"loan/internal/cache"
 	"loan/internal/database"
@@ -35,12 +36,302 @@ type LoanPermissionsDao interface {
 	CreateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanPermissions) (uint64, error)
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanPermissions) error
+
+	// 查询 role 当前有效权限 id 列表（deleted_at is null）
+	GetActivePermissionIDsByRoleID(ctx context.Context, roleID int64) ([]int64, error)
+	// 查询 role 当前已软删权限 id 列表（deleted_at is not null）
+	GetDeletedPermissionIDsByRoleID(ctx context.Context, roleID int64) ([]int64, error)
+
+	// 批量恢复（deleted_at = null）
+	RestoreByRoleIDAndPermissionIDs(ctx context.Context, roleID int64, permissionIDs []int64) error
+	RestoreByTx(ctx context.Context, tx *gorm.DB, roleID int64, permissionIDs []int64) error
+
+	// 批量软删（deleted_at = now）
+	SoftDeleteByRoleIDAndPermissionIDs(ctx context.Context, roleID int64, permissionIDs []int64) error
+	SoftDeleteByTx(ctx context.Context, tx *gorm.DB, roleID int64, permissionIDs []int64) error
+
+	// 批量创建关联
+	BulkCreate(ctx context.Context, roleID int64, permissionIDs []int64) error
+	BulkCreateByTx(ctx context.Context, tx *gorm.DB, roleID int64, permissionIDs []int64) error
+
+	// JOIN 查询权限详情（id,name,code）
+	GetRolePermissions(ctx context.Context, roleID int64, page, limit int) ([]*types.LoanRolePermissionsObjTable, int64, error)
+
+	SetRolePermissions(ctx context.Context, roleID int64, permissionIDs []int64) error
 }
 
 type loanPermissionsDao struct {
 	db    *gorm.DB
 	cache cache.LoanPermissionsCache // if nil, the cache is not used.
 	sfg   *singleflight.Group        // if cache is nil, the sfg is not used.
+}
+
+var (
+	ErrInvalidParams      = errors.New("invalid params")
+	ErrPermissionNotFound = errors.New("permission not found")
+	ErrRoleNotFound       = errors.New("role not found") // 如果你愿意做 role 校验或识别 FK 错误
+)
+
+func (d *loanPermissionsDao) SetRolePermissions(ctx context.Context, roleID int64, permissionIDs []int64) error {
+	if roleID <= 0 {
+		return ErrInvalidParams
+	}
+
+	// 可选：限制一次提交的权限数量，避免恶意/错误请求拖垮 DB
+	const maxPermissionIDs = 200
+	if len(permissionIDs) > maxPermissionIDs {
+		return ErrInvalidParams
+	}
+
+	// 1) 去重 + 校验（允许空数组：表示清空）
+	targetSet := make(map[int64]struct{}, len(permissionIDs))
+	uniq := make([]int64, 0, len(permissionIDs))
+	for _, pid := range permissionIDs {
+		if pid <= 0 {
+			return ErrInvalidParams
+		}
+		if _, ok := targetSet[pid]; ok {
+			continue
+		}
+		targetSet[pid] = struct{}{}
+		uniq = append(uniq, pid)
+	}
+
+	// 2) 校验 permission 是否存在（强烈建议）
+	if len(uniq) > 0 {
+		u64s := make([]uint64, 0, len(uniq))
+		for _, id := range uniq {
+			u64s = append(u64s, uint64(id))
+		}
+		m, err := d.GetByIDs(ctx, u64s)
+		if err != nil {
+			return err
+		}
+		if len(m) != len(u64s) {
+			return ErrPermissionNotFound
+		}
+	}
+
+	// 3) 事务：差量更新
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// 3.1 当前有效权限（用 tx 读）
+		activeIDs, err := d.GetActivePermissionIDsByRoleIDTx(ctx, tx, roleID)
+		if err != nil {
+			return err
+		}
+		activeSet := make(map[int64]struct{}, len(activeIDs))
+		for _, id := range activeIDs {
+			activeSet[id] = struct{}{}
+		}
+
+		// 3.2 当前已软删权限（用 tx 读）
+		deletedIDs, err := d.GetDeletedPermissionIDsByRoleIDTx(ctx, tx, roleID)
+		if err != nil {
+			return err
+		}
+		deletedSet := make(map[int64]struct{}, len(deletedIDs))
+		for _, id := range deletedIDs {
+			deletedSet[id] = struct{}{}
+		}
+
+		// 3.3 toRemove = active - target
+		toRemove := make([]int64, 0)
+		for pid := range activeSet {
+			if _, ok := targetSet[pid]; !ok {
+				toRemove = append(toRemove, pid)
+			}
+		}
+
+		// 3.4 toRestore / toInsert = target - active
+		toRestore := make([]int64, 0)
+		toInsert := make([]int64, 0)
+		for pid := range targetSet {
+			if _, ok := activeSet[pid]; ok {
+				continue
+			}
+			if _, ok := deletedSet[pid]; ok {
+				toRestore = append(toRestore, pid)
+			} else {
+				toInsert = append(toInsert, pid)
+			}
+		}
+
+		// 3.5 restore -> insert -> soft delete（都走 tx）
+		if err := d.RestoreByTx(ctx, tx, roleID, toRestore); err != nil {
+			return err
+		}
+		if err := d.BulkCreateByTx(ctx, tx, roleID, toInsert); err != nil {
+			return err
+		}
+		if err := d.SoftDeleteByTx(ctx, tx, roleID, toRemove); err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+func (d *loanPermissionsDao) GetActivePermissionIDsByRoleIDTx(ctx context.Context, tx *gorm.DB, roleID int64) ([]int64, error) {
+	var ids []int64
+	err := tx.WithContext(ctx).
+		Table("loan_role_permissions").
+		Select("permission_id").
+		Where("role_id = ? AND deleted_at IS NULL", roleID).
+		Scan(&ids).Error
+	return ids, err
+}
+
+func (d *loanPermissionsDao) GetDeletedPermissionIDsByRoleIDTx(ctx context.Context, tx *gorm.DB, roleID int64) ([]int64, error) {
+	var ids []int64
+	err := tx.WithContext(ctx).
+		Table("loan_role_permissions").
+		Select("permission_id").
+		Where("role_id = ? AND deleted_at IS NOT NULL", roleID).
+		Scan(&ids).Error
+	return ids, err
+}
+
+// GetActivePermissionIDsByRoleID 查询 role 当前有效权限（deleted_at IS NULL）
+func (d *loanPermissionsDao) GetActivePermissionIDsByRoleID(ctx context.Context, roleID int64) ([]int64, error) {
+	var ids []int64
+	err := d.db.WithContext(ctx).
+		Table("loan_role_permissions").
+		Select("permission_id").
+		Where("role_id = ? AND deleted_at IS NULL", roleID).
+		Scan(&ids).Error
+	return ids, err
+}
+
+// GetDeletedPermissionIDsByRoleID 查询 role 当前已软删权限（deleted_at IS NOT NULL）
+func (d *loanPermissionsDao) GetDeletedPermissionIDsByRoleID(ctx context.Context, roleID int64) ([]int64, error) {
+	var ids []int64
+	err := d.db.WithContext(ctx).
+		Table("loan_role_permissions").
+		Select("permission_id").
+		Where("role_id = ? AND deleted_at IS NOT NULL", roleID).
+		Scan(&ids).Error
+	return ids, err
+}
+
+// RestoreByRoleIDAndPermissionIDs 批量恢复（deleted_at = NULL）
+func (d *loanPermissionsDao) RestoreByRoleIDAndPermissionIDs(ctx context.Context, roleID int64, permissionIDs []int64) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return d.RestoreByTx(ctx, tx, roleID, permissionIDs)
+	})
+}
+
+// RestoreByTx 批量恢复（deleted_at = NULL）- 使用外部事务
+func (d *loanPermissionsDao) RestoreByTx(ctx context.Context, tx *gorm.DB, roleID int64, permissionIDs []int64) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+	now := time.Now()
+	return tx.WithContext(ctx).
+		Table("loan_role_permissions").
+		Where("role_id = ? AND permission_id IN ?", roleID, permissionIDs).
+		Updates(map[string]any{
+			"deleted_at": nil,
+			"updated_at": now,
+		}).Error
+}
+
+// SoftDeleteByRoleIDAndPermissionIDs 批量软删（deleted_at = NOW）
+func (d *loanPermissionsDao) SoftDeleteByRoleIDAndPermissionIDs(ctx context.Context, roleID int64, permissionIDs []int64) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return d.SoftDeleteByTx(ctx, tx, roleID, permissionIDs)
+	})
+}
+
+// SoftDeleteByTx 批量软删（deleted_at = NOW）- 使用外部事务
+func (d *loanPermissionsDao) SoftDeleteByTx(ctx context.Context, tx *gorm.DB, roleID int64, permissionIDs []int64) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+	now := time.Now()
+	return tx.WithContext(ctx).
+		Table("loan_role_permissions").
+		Where("role_id = ? AND permission_id IN ?", roleID, permissionIDs).
+		Updates(map[string]any{
+			"deleted_at": now,
+			"updated_at": now,
+		}).Error
+}
+
+// BulkCreate 批量创建 role-permission 关联（忽略重复主键）
+func (d *loanPermissionsDao) BulkCreate(ctx context.Context, roleID int64, permissionIDs []int64) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+	return d.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		return d.BulkCreateByTx(ctx, tx, roleID, permissionIDs)
+	})
+}
+
+// BulkCreateByTx 批量创建 - 使用外部事务
+func (d *loanPermissionsDao) BulkCreateByTx(ctx context.Context, tx *gorm.DB, roleID int64, permissionIDs []int64) error {
+	if len(permissionIDs) == 0 {
+		return nil
+	}
+
+	now := time.Now()
+	rows := make([]map[string]interface{}, 0, len(permissionIDs))
+	for _, pid := range permissionIDs {
+		rows = append(rows, map[string]interface{}{
+			"role_id":       roleID,
+			"permission_id": pid,
+			"created_at":    now,
+			"updated_at":    now,
+			"deleted_at":    nil,
+		})
+	}
+
+	return tx.WithContext(ctx).
+		Table("loan_role_permissions").
+		Clauses(clause.Insert{Modifier: "IGNORE"}). // ✅ MySQL: INSERT IGNORE
+		Create(&rows).Error
+}
+
+// GetRolePermissions JOIN 查询角色权限详情（id,name,code），只返回未删除的关联
+func (d *loanPermissionsDao) GetRolePermissions(ctx context.Context, roleID int64, page, limit int) ([]*types.LoanRolePermissionsObjTable, int64, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if page < 0 {
+		page = 0
+	}
+	offset := page * limit
+
+	base := d.db.WithContext(ctx).
+		Table("loan_role_permissions AS r").
+		Joins("INNER JOIN loan_permissions p ON r.permission_id = p.id").
+		Where("r.role_id = ? AND r.deleted_at IS NULL", roleID)
+
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if total == 0 {
+		return nil, 0, nil
+	}
+
+	records := make([]*types.LoanRolePermissionsObjTable, 0, limit)
+	err := base.
+		Select("r.id AS id, p.name AS name, p.code AS code").
+		Order("r.id ASC").
+		Limit(limit).
+		Offset(offset).
+		Scan(&records).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return records, total, nil
 }
 
 // NewLoanPermissionsDao creating the dao interface

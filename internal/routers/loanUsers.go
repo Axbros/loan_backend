@@ -38,6 +38,6 @@ func loanUsersRouter(group *gin.RouterGroup, h handler.LoanUsersHandler) {
 
 	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanUsers/delete/ids
 	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanUsers/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanUsers/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanUsers/list
+	//g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanUsers/list/ids
+	//g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanUsers/list
 }

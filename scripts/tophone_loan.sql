@@ -319,7 +319,7 @@ DROP TABLE IF EXISTS `loan_departments`;
 CREATE TABLE `loan_departments` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `name` varchar(128) NOT NULL,
-  `parent_id` bigint DEFAULT NULL,
+  `admin_user_id` bigint DEFAULT NULL,
   `status` tinyint NOT NULL DEFAULT '1',
   `created_at` datetime NOT NULL,
   `updated_at` datetime NOT NULL,

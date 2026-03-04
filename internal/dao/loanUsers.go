@@ -26,7 +26,7 @@ type LoanUsersDao interface {
 	DeleteByID(ctx context.Context, id uint64) error
 	UpdateByID(ctx context.Context, table *model.LoanUsers) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanUsers, error)
-	GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanUsers, int64, error)
+	GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanUsersObjTable, int64, error)
 
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanUsers, error)
@@ -354,31 +354,61 @@ func (d *loanUsersDao) GetByID(ctx context.Context, id uint64) (*model.LoanUsers
 
 // GetByColumns get a paginated list of loanUserss by custom conditions.
 // For more details, please refer to https://go-sponge.com/component/data/custom-page-query.html
-func (d *loanUsersDao) GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanUsers, int64, error) {
-	queryStr, args, err := params.ConvertToGormConditions(query.WithWhitelistNames(model.LoanUsersColumnNames))
+func (d *loanUsersDao) GetByColumns(
+	ctx context.Context,
+	params *query.Params,
+) ([]*types.LoanUsersObjTable, int64, error) {
+
+	queryStr, args, err := params.ConvertToGormConditions(
+		query.WithWhitelistNames(model.LoanUsersColumnNames),
+	)
 	if err != nil {
 		return nil, 0, errors.New("query params error: " + err.Error())
 	}
 
+	// 基础查询：users + departments
+	base := d.db.WithContext(ctx).
+		Table("loan_users u").
+		Joins("INNER JOIN loan_departments d ON u.department_id = d.id").
+		Where(queryStr, args...)
+
+	// count（注意：count 用 base，但不要带 limit/offset/order）
 	var total int64
-	if params.Sort != "ignore count" { // determine if count is required
-		err = d.db.WithContext(ctx).Model(&model.LoanUsers{}).Where(queryStr, args...).Count(&total).Error
-		if err != nil {
+	if params.Sort != "ignore count" {
+		if err := base.Count(&total).Error; err != nil {
 			return nil, 0, err
 		}
 		if total == 0 {
-			return nil, total, nil
+			return nil, 0, nil
 		}
 	}
 
-	records := []*model.LoanUsers{}
+	// 分页/排序
 	order, limit, offset := params.ConvertToPage()
-	err = d.db.WithContext(ctx).Order(order).Limit(limit).Offset(offset).Where(queryStr, args...).Find(&records).Error
+
+	records := make([]*types.LoanUsersObjTable, 0, limit)
+
+	err = base.
+		Select(`
+			u.id,
+			u.username,
+			d.name AS department,
+			u.mfa_enabled,
+			u.mfa_required,
+			u.status,
+			u.created_at,
+			u.updated_at,
+			u.share_code
+		`).
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Scan(&records).Error
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return records, total, err
+	return records, total, nil
 }
 
 // DeleteByIDs batch delete loanUsers by ids

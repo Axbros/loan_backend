@@ -29,6 +29,7 @@ type LoanPermissionsHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
+	PermissionUpdate(c *gin.Context)
 
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
@@ -48,6 +49,85 @@ func NewLoanPermissionsHandler() LoanPermissionsHandler {
 			cache.NewLoanPermissionsCache(database.GetCacheType()),
 		),
 	}
+}
+
+func (h *loanPermissionsHandler) PermissionUpdate(c *gin.Context) {
+	form := &types.PermissionUpdateReq{}
+	if err := c.ShouldBindJSON(form); err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	// --- 基础校验 ---
+	if form.RoleID <= 0 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	// permission_ids 允许空数组：表示清空该角色权限
+	// 但不允许出现 <=0 的 id
+	uniq := make([]int64, 0, len(form.PermissionIDs))
+	seen := make(map[int64]struct{}, len(form.PermissionIDs))
+	for _, pid := range form.PermissionIDs {
+		if pid <= 0 {
+			response.Error(c, ecode.InvalidParams)
+			return
+		}
+		if _, ok := seen[pid]; ok {
+			continue
+		}
+		seen[pid] = struct{}{}
+		uniq = append(uniq, pid)
+	}
+	form.PermissionIDs = uniq
+
+	// --- 鉴权（占位，按你们项目实际中间件替换）---
+	// 例如：只有管理员/有 manage_roles 权限才允许更新
+	// if !middleware.HasPermission(c, "manage_roles") {
+	//     response.Error(c, ecode.Forbidden)
+	//     return
+	// }
+
+	ctx := c.Request.Context()
+
+	// --- 业务校验：role 是否存在、permission 是否都存在（强烈建议做）---
+	// 你可以在 service 里做；这里也可以直接调用 dao。
+	// 我假设 service 内部会做并返回合适错误码。
+
+	// --- 执行更新：语义是 Set（全量覆盖）---
+	if err := h.iDao.SetRolePermissions(ctx, form.RoleID, form.PermissionIDs); err != nil {
+		logger.Error("SetRolePermissions failed: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+
+		// 按你们项目的错误类型映射 ecode（下面给常见映射示例）
+		switch {
+		case errors.Is(err, dao.ErrRoleNotFound):
+			response.Error(c, ecode.NotFound)
+			return
+		case errors.Is(err, dao.ErrPermissionNotFound):
+			response.Error(c, ecode.InvalidParams)
+			return
+		default:
+			response.Error(c, ecode.InternalServerError)
+			return
+		}
+	}
+
+	// --- 返回更新后的权限列表（推荐）---
+	// 前端可以直接用返回结果刷新 UI，不用再额外请求一次
+	records, total, err := h.iDao.GetRolePermissions(ctx, form.RoleID, 0, 1000)
+	if err != nil {
+		logger.Error("GetRolePermissions failed: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		// 更新成功但查询失败：也可以直接返回成功不带列表；这里按你们风格返回错误
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"role_id": form.RoleID,
+		"total":   total,
+		"list":    records, // []LoanRolePermissionsObjTable{id,name,code}
+	})
 }
 
 // Create a new loanPermissions

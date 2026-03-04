@@ -18,6 +18,11 @@ type CreateLoanPermissionsRequest struct {
 	Resource string `json:"resource" binding:""`
 }
 
+type PermissionUpdateReq struct {
+	RoleID        int64   `json:"role_id" binding:"required"`
+	PermissionIDs []int64 `json:"permission_ids"` // 允许空数组：表示清空权限
+}
+
 // UpdateLoanPermissionsByIDRequest request params
 type UpdateLoanPermissionsByIDRequest struct {
 	ID uint64 `json:"id" binding:""` // uint64 id

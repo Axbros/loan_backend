@@ -28,7 +28,7 @@ func loanPermissionsRouter(group *gin.RouterGroup, h handler.LoanPermissionsHand
 	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanPermissions/:id
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanPermissions/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanPermissions/list
-
+	g.POST("/permission_update", h.PermissionUpdate)
 	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanPermissions/delete/ids
 	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanPermissions/condition
 	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanPermissions/list/ids

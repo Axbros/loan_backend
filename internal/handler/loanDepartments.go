@@ -230,15 +230,9 @@ func (h *loanDepartmentsHandler) List(c *gin.Context) {
 		return
 	}
 
-	data, err := convertLoanDepartmentss(loanDepartmentss)
-	if err != nil {
-		response.Error(c, ecode.ErrListLoanDepartments)
-		return
-	}
-
 	response.Success(c, gin.H{
-		"loanDepartmentss": data,
-		"total":            total,
+		"records": loanDepartmentss,
+		"total":   total,
 	})
 }
 
