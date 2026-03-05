@@ -27,7 +27,7 @@ type LoanUsersDao interface {
 	UpdateByID(ctx context.Context, table *model.LoanUsers) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanUsers, error)
 	GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanUsersObjTable, int64, error)
-
+	GetCollectUserList(ctx context.Context) ([]*types.LoanUsersObjSimple, error)
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanUsers, error)
 	GetByIDs(ctx context.Context, ids []uint64) (map[uint64]*model.LoanUsers, error)
@@ -65,6 +65,31 @@ func NewLoanUsersDao(db *gorm.DB, xCache cache.LoanUsersCache) LoanUsersDao {
 		cache: xCache,
 		sfg:   new(singleflight.Group),
 	}
+}
+
+func (d *loanUsersDao) GetCollectUserList(ctx context.Context) ([]*types.LoanUsersObjSimple, error) {
+	records := make([]*types.LoanUsersObjSimple, 0)
+
+	err := d.db.WithContext(ctx).
+		Table("loan_users u").
+		Joins("JOIN loan_department_roles rd ON rd.department_id = u.department_id AND rd.deleted_at IS NULL").
+		Joins("JOIN loan_roles r ON r.id = rd.role_id AND r.deleted_at IS NULL").
+		Where("r.code = ?", "collector").
+		Where("u.deleted_at IS NULL").
+		// 防止数据异常导致重复（比如关系表里重复记录）
+		Distinct("u.id").
+		// 只选你 simple 结构体需要的字段（按你的结构体字段改）
+		Select(`
+			u.id,
+			u.username,
+			u.department_id
+		`).
+		Scan(&records).Error
+
+	if err != nil {
+		return nil, err
+	}
+	return records, nil
 }
 
 func (d *loanUsersDao) GetActivePrimaryMFADevice(ctx context.Context, userID uint64) (*model.LoanMfaDevices, error) {

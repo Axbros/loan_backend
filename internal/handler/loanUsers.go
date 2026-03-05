@@ -50,7 +50,7 @@ type LoanUsersHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
-
+	GetCollectUser(c *gin.Context)
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
 }
@@ -67,6 +67,16 @@ func NewLoanUsersHandler() LoanUsersHandler {
 			cache.NewLoanUsersCache(database.GetCacheType()),
 		),
 	}
+}
+
+func (h *loanUsersHandler) GetCollectUser(c *gin.Context) {
+	ctx := middleware.WrapCtx(c)
+	records, err := h.iDao.GetCollectUserList(ctx)
+	if err != nil {
+		response.Error(c, ecode.ErrGetByConditionLoanUsers)
+		return
+	}
+	response.Success(c, gin.H{"records": records, "total": len(records)})
 }
 
 func (h *loanUsersHandler) BindMFA(c *gin.Context) {

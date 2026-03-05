@@ -3,6 +3,8 @@ package dao
 import (
 	"context"
 	"errors"
+	"loan/internal/types"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/singleflight"
@@ -25,7 +27,7 @@ type LoanCollectionCasesDao interface {
 	DeleteByID(ctx context.Context, id uint64) error
 	UpdateByID(ctx context.Context, table *model.LoanCollectionCases) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanCollectionCases, error)
-	GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanCollectionCases, int64, error)
+	GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanCollectionCasesObjTable, int64, error)
 
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanCollectionCases, error)
@@ -97,9 +99,6 @@ func (d *loanCollectionCasesDao) updateDataByID(ctx context.Context, db *gorm.DB
 
 	update := map[string]interface{}{}
 
-	if table.DisbursementID != 0 {
-		update["disbursement_id"] = table.DisbursementID
-	}
 	if table.ScheduleID != 0 {
 		update["schedule_id"] = table.ScheduleID
 	}
@@ -109,21 +108,14 @@ func (d *loanCollectionCasesDao) updateDataByID(ctx context.Context, db *gorm.DB
 	if table.AssignedByUserID != 0 {
 		update["assigned_by_user_id"] = table.AssignedByUserID
 	}
-	if table.AssignedAt != nil && table.AssignedAt.IsZero() == false {
-		update["assigned_at"] = table.AssignedAt
-	}
+
 	if table.Priority != 0 {
 		update["priority"] = table.Priority
 	}
 	if table.Status != 0 {
 		update["status"] = table.Status
 	}
-	if table.DueAmount != 0 {
-		update["due_amount"] = table.DueAmount
-	}
-	if table.OverdueDays != 0 {
-		update["overdue_days"] = table.OverdueDays
-	}
+
 	if table.CompletedAt != nil && table.CompletedAt.IsZero() == false {
 		update["completed_at"] = table.CompletedAt
 	}
@@ -190,31 +182,81 @@ func (d *loanCollectionCasesDao) GetByID(ctx context.Context, id uint64) (*model
 
 // GetByColumns get a paginated list of loanCollectionCasess by custom conditions.
 // For more details, please refer to https://go-sponge.com/component/data/custom-page-query.html
-func (d *loanCollectionCasesDao) GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanCollectionCases, int64, error) {
-	queryStr, args, err := params.ConvertToGormConditions(query.WithWhitelistNames(model.LoanCollectionCasesColumnNames))
+func (d *loanCollectionCasesDao) GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanCollectionCasesObjTable, int64, error) {
+	queryStr, args, err := params.ConvertToGormConditions(
+		query.WithWhitelistNames(model.LoanCollectionCasesColumnNames),
+	)
 	if err != nil {
 		return nil, 0, errors.New("query params error: " + err.Error())
 	}
 
+	// base query（等价你的 SQL）
+	base := d.db.WithContext(ctx).
+		Table("loan_collection_cases AS cc").
+		Joins("INNER JOIN loan_repayment_schedules AS rs ON cc.schedule_id = rs.id").
+		Joins("INNER JOIN loan_users AS collector ON cc.collector_user_id = collector.id").
+		Joins("LEFT JOIN loan_users AS assigner ON cc.assigned_by_user_id = assigner.id").
+		Joins("INNER JOIN loan_disbursements d ON d.id = rs.disbursement_id").
+		Joins("INNER JOIN loan_baseinfo b ON b.id = d.baseinfo_id").
+		Where("cc.deleted_at IS NULL").
+		Where("rs.deleted_at IS NULL").
+		Where("d.deleted_at IS NULL").
+		Where("b.deleted_at IS NULL")
+
+	// apply dynamic conditions（注意：你的白名单字段要能匹配 cc.*，否则需要在 ConvertToGormConditions 前缀列名）
+	if queryStr != "" {
+		base = base.Where(prefixCC(queryStr), args...)
+	}
+
+	// count（联表可能放大行数，保险起见用 distinct cc.id）
 	var total int64
-	if params.Sort != "ignore count" { // determine if count is required
-		err = d.db.WithContext(ctx).Model(&model.LoanCollectionCases{}).Where(queryStr, args...).Count(&total).Error
-		if err != nil {
+	if params.Sort != "ignore count" {
+		if err := base.Distinct("cc.id").Count(&total).Error; err != nil {
 			return nil, 0, err
 		}
 		if total == 0 {
-			return nil, total, nil
+			return nil, 0, nil
 		}
 	}
 
-	records := []*model.LoanCollectionCases{}
+	// page/sort
 	order, limit, offset := params.ConvertToPage()
-	err = d.db.WithContext(ctx).Order(order).Limit(limit).Offset(offset).Where(queryStr, args...).Find(&records).Error
+
+	records := make([]*types.LoanCollectionCasesObjTable, 0, limit)
+	err = base.
+		Select(`
+			cc.id,
+			cc.schedule_id,
+			d.baseinfo_id,
+			b.first_name,
+			b.second_name,
+			b.age,
+			b.gender,
+			b.id_type,
+			b.id_number,
+			b.mobile,
+			cc.priority,
+			cc.status,
+			cc.completed_at,
+			cc.completed_note,
+			rs.due_date,
+			d.net_amount,
+			rs.total_due,
+			rs.paid_total,
+			cc.created_at,
+			collector.username AS collector_name,
+			assigner.username AS assigned_by_name
+		`).
+		Order(order).
+		Limit(limit).
+		Offset(offset).
+		Scan(&records).Error
+
 	if err != nil {
 		return nil, 0, err
 	}
 
-	return records, total, err
+	return records, total, nil
 }
 
 // DeleteByIDs batch delete loanCollectionCases by ids
@@ -365,4 +407,34 @@ func (d *loanCollectionCasesDao) UpdateByTx(ctx context.Context, tx *gorm.DB, ta
 	_ = d.deleteCache(ctx, table.ID)
 
 	return err
+}
+
+// 给 LoanCollectionCases 的列名都加 cc. 前缀，避免歧义
+func prefixCC(queryStr string) string {
+	// 按你们 whitelist 里常用列逐个替换（你可以把需要的都加上）
+	replaces := map[string]string{
+		" status ":              " cc.status ",
+		" priority ":            " cc.priority ",
+		" schedule_id ":         " cc.schedule_id ",
+		" collector_user_id ":   " cc.collector_user_id ",
+		" assigned_by_user_id ": " cc.assigned_by_user_id ",
+		" created_at ":          " cc.created_at ",
+		" updated_at ":          " cc.updated_at ",
+		" deleted_at ":          " cc.deleted_at ",
+	}
+
+	// 处理开头/结尾等情况（=、<、>、IN 等）
+	// 这里用更通用的写法：替换 "status" 为 "cc.status"（但要避免替换到别名/字符串里）
+	// 最简单可用版本（你们 queryStr 规则一般很规整）：按关键 token 替换
+	for k, v := range replaces {
+		queryStr = strings.ReplaceAll(queryStr, k, v)
+	}
+	// 兼容 queryStr 以 "status" 开头
+	queryStr = strings.ReplaceAll(queryStr, "status =", "cc.status =")
+	queryStr = strings.ReplaceAll(queryStr, "status IN", "cc.status IN")
+	queryStr = strings.ReplaceAll(queryStr, "status !=", "cc.status !=")
+	queryStr = strings.ReplaceAll(queryStr, "status >", "cc.status >")
+	queryStr = strings.ReplaceAll(queryStr, "status <", "cc.status <")
+
+	return queryStr
 }

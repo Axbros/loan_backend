@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/go-dev-frame/sponge/pkg/sgorm/query"
+	"github.com/shopspring/decimal"
 )
 
 var _ time.Time
@@ -23,6 +24,40 @@ type CreateLoanCollectionCasesRequest struct {
 	OverdueDays      int        `json:"overdueDays" binding:""`      // 逾期天数快照(可选，用于列表展示)
 	CompletedAt      *time.Time `json:"completedAt" binding:""`      // 完成时间(点击完成时)
 	CompletedNote    string     `json:"completedNote" binding:""`    // 完成备注(例如用户承诺X天内还款)
+}
+
+type CreateLoanCollectionCasesAssignRequest struct {
+	CollectorUserID uint64   `json:"collector_user_id" binding:""`
+	ScheduleIDs     []uint64 `json:"schedule_ids" binding:""`
+}
+
+// types/loan_collection_cases_table.go
+type LoanCollectionCasesObjTable struct {
+	ID         uint64 `json:"id" gorm:"column:id"`
+	ScheduleID uint64 `json:"schedule_id" gorm:"column:schedule_id"`
+	BaseinfoID uint64 `json:"baseinfo_id" gorm:"column:baseinfo_id"`
+
+	FirstName  string `json:"first_name" gorm:"column:first_name"`
+	SecondName string `json:"second_name" gorm:"column:second_name"`
+	Age        int    `json:"age" gorm:"column:age"`
+	Gender     string `json:"gender" gorm:"column:gender"`
+	IDType     string `json:"id_type" gorm:"column:id_type"`
+	IDNumber   string `json:"id_number" gorm:"column:id_number"`
+	Mobile     string `json:"mobile" gorm:"column:mobile"`
+
+	Priority      int        `json:"priority" gorm:"column:priority"`
+	Status        int        `json:"status" gorm:"column:status"`
+	CompletedAt   *time.Time `json:"completed_at" gorm:"column:completed_at"`
+	CompletedNote string     `json:"completed_note" gorm:"column:completed_note"`
+
+	DueDate   time.Time       `json:"due_date" gorm:"column:due_date"`
+	NetAmount decimal.Decimal `json:"net_amount" gorm:"column:net_amount"` // 或 float64
+	TotalDue  decimal.Decimal `json:"total_due" gorm:"column:total_due"`   // 或 float64
+	PaidTotal decimal.Decimal `json:"paid_total" gorm:"column:paid_total"` // 或 float64
+
+	CreatedAt      time.Time `json:"created_at" gorm:"column:created_at"`
+	CollectorName  string    `json:"collector_name" gorm:"column:collector_name"`
+	AssignedByName *string   `json:"assigned_by_name" gorm:"column:assigned_by_name"`
 }
 
 // UpdateLoanCollectionCasesByIDRequest request params

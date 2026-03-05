@@ -5,12 +5,12 @@ import (
 	"math"
 
 	"github.com/gin-gonic/gin"
-
 	"github.com/go-dev-frame/sponge/pkg/copier"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 	"github.com/go-dev-frame/sponge/pkg/gin/response"
 	"github.com/go-dev-frame/sponge/pkg/logger"
 	"github.com/go-dev-frame/sponge/pkg/utils"
+	"github.com/go-sql-driver/mysql"
 
 	"loan/internal/cache"
 	"loan/internal/dao"
@@ -29,7 +29,7 @@ type LoanCollectionCasesHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
-
+	Assign(c *gin.Context)
 	DeleteByIDs(c *gin.Context)
 	GetByCondition(c *gin.Context)
 	ListByIDs(c *gin.Context)
@@ -37,7 +37,8 @@ type LoanCollectionCasesHandler interface {
 }
 
 type loanCollectionCasesHandler struct {
-	iDao dao.LoanCollectionCasesDao
+	iDao        dao.LoanCollectionCasesDao
+	scheduleDao dao.LoanRepaymentSchedulesDao
 }
 
 // NewLoanCollectionCasesHandler creating the handler interface
@@ -47,7 +48,105 @@ func NewLoanCollectionCasesHandler() LoanCollectionCasesHandler {
 			database.GetDB(), // db driver is mysql
 			cache.NewLoanCollectionCasesCache(database.GetCacheType()),
 		),
+		scheduleDao: dao.NewLoanRepaymentSchedulesDao(
+			database.GetDB(),
+			cache.NewLoanRepaymentSchedulesCache(database.GetCacheType()),
+		),
 	}
+}
+func (h *loanCollectionCasesHandler) Assign(c *gin.Context) {
+	form := &types.CreateLoanCollectionCasesAssignRequest{}
+	if err := c.ShouldBindJSON(form); err != nil {
+		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	uid, ok := getUIDFromClaims(c)
+	if !ok || uid == 0 {
+		response.Error(c, ecode.Unauthorized)
+		return
+	}
+
+	if form.CollectorUserID == 0 || len(form.ScheduleIDs) == 0 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	uniq := make([]uint64, 0, len(form.ScheduleIDs))
+	seen := make(map[uint64]struct{}, len(form.ScheduleIDs))
+	for _, sid := range form.ScheduleIDs {
+		if sid == 0 {
+			continue
+		}
+		if _, exists := seen[sid]; exists {
+			continue
+		}
+		seen[sid] = struct{}{}
+		uniq = append(uniq, sid)
+	}
+	if len(uniq) == 0 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	ctx := middleware.WrapCtx(c)
+
+	db := database.GetDB()
+	tx := db.WithContext(ctx).Begin()
+	if tx.Error != nil {
+		logger.Error("Begin tx error", logger.Err(tx.Error), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+
+	// 兜底：函数任何提前 return 都会回滚（Commit 后 Rollback 不会生效）
+	defer func() {
+		_ = tx.Rollback().Error
+	}()
+
+	duplicateIDs := make([]uint64, 0)
+
+	for _, sid := range uniq {
+		record := &model.LoanCollectionCases{
+			ScheduleID:       sid,
+			CollectorUserID:  form.CollectorUserID,
+			AssignedByUserID: uid,
+		}
+
+		_, err := h.iDao.CreateByTx(ctx, tx, record)
+		if err != nil {
+			var mysqlErr *mysql.MySQLError
+			if errors.As(err, &mysqlErr) && mysqlErr.Number == 1062 {
+				// 重复指派，跳过
+				duplicateIDs = append(duplicateIDs, sid)
+				logger.Warn("重复指派，跳过 LoanCollectionCases CreateByTx error: ", logger.Err(err))
+				continue
+			}
+			logger.Error(
+				"CreateByTx error",
+				logger.Err(err),
+				logger.Any("record", record),
+				middleware.GCtxRequestIDField(c),
+			)
+
+			_ = tx.Rollback().Error
+			response.Error(c, ecode.InternalServerError)
+			return
+		}
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		logger.Error("Commit tx error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"duplicate_schedule_ids":   duplicateIDs,
+		"duplicate_schedule_total": len(duplicateIDs),
+		"success_assign_totla":     len(form.ScheduleIDs) - len(duplicateIDs),
+	})
 }
 
 // Create a new loanCollectionCases
@@ -230,15 +329,9 @@ func (h *loanCollectionCasesHandler) List(c *gin.Context) {
 		return
 	}
 
-	data, err := convertLoanCollectionCasess(loanCollectionCasess)
-	if err != nil {
-		response.Error(c, ecode.ErrListLoanCollectionCases)
-		return
-	}
-
 	response.Success(c, gin.H{
-		"loanCollectionCasess": data,
-		"total":                total,
+		"records": loanCollectionCasess,
+		"total":   total,
 	})
 }
 

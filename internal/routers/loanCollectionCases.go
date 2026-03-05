@@ -2,6 +2,7 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 
 	"loan/internal/handler"
 )
@@ -13,7 +14,7 @@ func init() {
 }
 
 func loanCollectionCasesRouter(group *gin.RouterGroup, h handler.LoanCollectionCasesHandler) {
-	g := group.Group("/loanCollectionCases")
+	g := group.Group("/collection-cases")
 
 	// JWT authentication reference: https://go-sponge.com/component/transport/gin.html#jwt-authorization-middleware
 
@@ -28,6 +29,7 @@ func loanCollectionCasesRouter(group *gin.RouterGroup, h handler.LoanCollectionC
 	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanCollectionCases/:id
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanCollectionCases/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanCollectionCases/list
+	g.POST("/assign", middleware.Auth(), h.Assign)
 
 	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanCollectionCases/delete/ids
 	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanCollectionCases/condition
