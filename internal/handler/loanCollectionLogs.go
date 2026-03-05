@@ -3,6 +3,7 @@ package handler
 import (
 	"errors"
 	"math"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -37,7 +38,8 @@ type LoanCollectionLogsHandler interface {
 }
 
 type loanCollectionLogsHandler struct {
-	iDao dao.LoanCollectionLogsDao
+	iDao    dao.LoanCollectionLogsDao
+	caseDao dao.LoanCollectionCasesDao
 }
 
 // NewLoanCollectionLogsHandler creating the handler interface
@@ -46,6 +48,10 @@ func NewLoanCollectionLogsHandler() LoanCollectionLogsHandler {
 		iDao: dao.NewLoanCollectionLogsDao(
 			database.GetDB(), // db driver is mysql
 			cache.NewLoanCollectionLogsCache(database.GetCacheType()),
+		),
+		caseDao: dao.NewLoanCollectionCasesDao(
+			database.GetDB(),
+			cache.NewLoanCollectionCasesCache(database.GetCacheType()),
 		),
 	}
 }
@@ -61,27 +67,75 @@ func NewLoanCollectionLogsHandler() LoanCollectionLogsHandler {
 // @Router /api/v1/loanCollectionLogs [post]
 // @Security BearerAuth
 func (h *loanCollectionLogsHandler) Create(c *gin.Context) {
+	uid, ok := getUIDFromClaims(c)
+	if !ok || uid == 0 {
+		response.Error(c, ecode.Unauthorized)
+		return
+	}
+
 	form := &types.CreateLoanCollectionLogsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
+	if err := c.ShouldBindJSON(form); err != nil {
 		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.InvalidParams)
 		return
 	}
 
 	loanCollectionLogs := &model.LoanCollectionLogs{}
-	err = copier.Copy(loanCollectionLogs, form)
-	if err != nil {
+
+	// copier 只拷贝“同类型/可直接赋值”的字段（ActionType/Content 等）
+	if err := copier.Copy(loanCollectionLogs, form); err != nil {
+		logger.Error("copier.Copy error", logger.Err(err), middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.ErrCreateLoanCollectionLogs)
 		return
 	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
+
+	// 强制字段：不信任前端
+	loanCollectionLogs.CollectorUserID = uid
+
+	// CaseID: int64 -> uint64，手动转（并做校验）
+	if form.CaseID <= 0 {
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+	loanCollectionLogs.CaseID = form.CaseID
+
+	// NextFollowUpAt: string -> *time.Time，手动 parse
+	if form.NextFollowUpAt != "" {
+		t, err := time.Parse("2006-01-02 15:04:05", form.NextFollowUpAt)
+		if err != nil {
+			logger.Warn("Parse NextFollowUpAt error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.InvalidParams)
+			return
+		}
+		loanCollectionLogs.NextFollowUpAt = &t
+	} else {
+		loanCollectionLogs.NextFollowUpAt = nil
+	}
 
 	ctx := middleware.WrapCtx(c)
-	err = h.iDao.Create(ctx, loanCollectionLogs)
+
+	record, err := h.caseDao.GetByID(ctx, loanCollectionLogs.CaseID)
 	if err != nil {
+		logger.Error("GetByID error", logger.Err(err), middleware.GCtxRequestIDField(c))
+		response.Error(c, ecode.ErrGetByIDLoanCollectionCases)
+		return
+	}
+	if record.Status == 2 {
+		//最终态禁止更新
+		response.Error(c, ecode.InternalServerError)
+		return
+	}
+	if err := h.iDao.Create(ctx, loanCollectionLogs); err != nil {
 		logger.Error("Create error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
 		response.Output(c, ecode.InternalServerError.ToHTTPCode())
+		return
+	}
+
+	record.Status = 1 //重要调用创建催收日志 就一定是 跟进中的状态
+
+	err = h.caseDao.UpdateByID(ctx, record)
+	if err != nil {
+		response.Error(c, ecode.ErrUpdateByIDLoanCollectionLogs)
 		return
 	}
 
@@ -237,8 +291,8 @@ func (h *loanCollectionLogsHandler) List(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"loanCollectionLogss": data,
-		"total":               total,
+		"records": data,
+		"total":   total,
 	})
 }
 

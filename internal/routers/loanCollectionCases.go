@@ -30,7 +30,6 @@ func loanCollectionCasesRouter(group *gin.RouterGroup, h handler.LoanCollectionC
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanCollectionCases/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanCollectionCases/list
 	g.POST("/assign", middleware.Auth(), h.Assign)
-
 	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanCollectionCases/delete/ids
 	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanCollectionCases/condition
 	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanCollectionCases/list/ids

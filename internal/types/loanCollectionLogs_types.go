@@ -12,11 +12,10 @@ var _ time.Time
 
 // CreateLoanCollectionLogsRequest request params
 type CreateLoanCollectionLogsRequest struct {
-	CaseID          int64      `json:"caseID" binding:""`          // 关联催收任务 loan_collection_cases.id
-	CollectorUserID int64      `json:"collectorUserID" binding:""` // 催收人员 loan_users.id
-	ActionType      string     `json:"actionType" binding:""`      // 动作类型(如 CALL/SMS/VISIT/OTHER，可选)
-	Content         string     `json:"content" binding:""`         // 跟进内容/备注(例如用户承诺3天内还款)
-	NextFollowUpAt  *time.Time `json:"nextFollowUpAt" binding:""`  // 下次跟进时间(可选)
+	CaseID         uint64 `json:"caseID" binding:""`         // 关联催收任务 loan_collection_cases.id
+	ActionType     string `json:"actionType" binding:""`     // 动作类型(如 CALL/SMS/VISIT/OTHER，可选)
+	Content        string `json:"content" binding:""`        // 跟进内容/备注(例如用户承诺3天内还款)
+	NextFollowUpAt string `json:"nextFollowUpAt" copier:"-"` // 下次跟进时间(可选)
 }
 
 // UpdateLoanCollectionLogsByIDRequest request params

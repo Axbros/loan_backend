@@ -33,9 +33,10 @@ type CreateLoanCollectionCasesAssignRequest struct {
 
 // types/loan_collection_cases_table.go
 type LoanCollectionCasesObjTable struct {
-	ID         uint64 `json:"id" gorm:"column:id"`
-	ScheduleID uint64 `json:"schedule_id" gorm:"column:schedule_id"`
-	BaseinfoID uint64 `json:"baseinfo_id" gorm:"column:baseinfo_id"`
+	ID              uint64 `json:"id" gorm:"column:id"`
+	ScheduleID      uint64 `json:"schedule_id" gorm:"column:schedule_id"`
+	BaseinfoID      uint64 `json:"baseinfo_id" gorm:"column:baseinfo_id"`
+	CollectorUserID uint64 `json:"collector_user_id" gorm:"column:collector_user_id"`
 
 	FirstName  string `json:"first_name" gorm:"column:first_name"`
 	SecondName string `json:"second_name" gorm:"column:second_name"`

@@ -227,6 +227,7 @@ func (d *loanCollectionCasesDao) GetByColumns(ctx context.Context, params *query
 		Select(`
 			cc.id,
 			cc.schedule_id,
+			cc.collector_user_id,
 			d.baseinfo_id,
 			b.first_name,
 			b.second_name,

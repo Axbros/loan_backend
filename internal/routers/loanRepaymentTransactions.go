@@ -13,6 +13,8 @@ func init() {
 	})
 }
 
+//TODO 用户添加回款 如果大于等于应还金额应该把loanCollectionCases.go的status设置为已完成2
+
 func loanRepaymentTransactionsRouter(group *gin.RouterGroup, h handler.LoanRepaymentTransactionsHandler) {
 	g := group.Group("/repayment-transaction")
 

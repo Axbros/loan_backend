@@ -2,6 +2,7 @@ package routers
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 
 	"loan/internal/handler"
 )
@@ -13,7 +14,7 @@ func init() {
 }
 
 func loanCollectionLogsRouter(group *gin.RouterGroup, h handler.LoanCollectionLogsHandler) {
-	g := group.Group("/loanCollectionLogs")
+	g := group.Group("/collection-logs")
 
 	// JWT authentication reference: https://go-sponge.com/component/transport/gin.html#jwt-authorization-middleware
 
@@ -23,11 +24,11 @@ func loanCollectionLogsRouter(group *gin.RouterGroup, h handler.LoanCollectionLo
 	// If jwt authentication is not required for all routes, authentication middleware can be added
 	// separately for only certain routes. In this case, g.Use(middleware.Auth()) above should not be used.
 
-	g.POST("/", h.Create)          // [post] /api/v1/loanCollectionLogs
-	g.DELETE("/:id", h.DeleteByID) // [delete] /api/v1/loanCollectionLogs/:id
-	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanCollectionLogs/:id
-	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanCollectionLogs/:id
-	g.POST("/list", h.List)        // [post] /api/v1/loanCollectionLogs/list
+	g.POST("/", middleware.Auth(), h.Create) // [post] /api/v1/loanCollectionLogs
+	g.DELETE("/:id", h.DeleteByID)           // [delete] /api/v1/loanCollectionLogs/:id
+	g.PUT("/:id", h.UpdateByID)              // [put] /api/v1/loanCollectionLogs/:id
+	g.GET("/:id", h.GetByID)                 // [get] /api/v1/loanCollectionLogs/:id
+	g.POST("/list", h.List)                  // [post] /api/v1/loanCollectionLogs/list
 
 	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanCollectionLogs/delete/ids
 	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanCollectionLogs/condition
