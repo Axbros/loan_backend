@@ -23,3 +23,5 @@ dist/
 
 cmd/loan/loan
 
+
+configs/loan.yml
