@@ -237,8 +237,8 @@ func (h *loanRolesHandler) List(c *gin.Context) {
 	}
 
 	response.Success(c, gin.H{
-		"loanRoless": data,
-		"total":      total,
+		"records": data,
+		"total":   total,
 	})
 }
 

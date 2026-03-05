@@ -26,7 +26,7 @@ type LoanDepartmentRolesDao interface {
 	UpdateByID(ctx context.Context, table *model.LoanDepartmentRoles) error
 	GetByID(ctx context.Context, id uint64) (*model.LoanDepartmentRoles, error)
 	GetByColumns(ctx context.Context, params *query.Params) ([]*model.LoanDepartmentRoles, int64, error)
-
+	GetByDepartmentID(ctx context.Context, departmentID uint64) (*model.LoanDepartmentRoles, error)
 	DeleteByIDs(ctx context.Context, ids []uint64) error
 	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanDepartmentRoles, error)
 	GetByIDs(ctx context.Context, ids []uint64) (map[uint64]*model.LoanDepartmentRoles, error)
@@ -53,6 +53,20 @@ func NewLoanDepartmentRolesDao(db *gorm.DB, xCache cache.LoanDepartmentRolesCach
 		cache: xCache,
 		sfg:   new(singleflight.Group),
 	}
+}
+
+func (d *loanDepartmentRolesDao) GetByDepartmentID(ctx context.Context, departmentID uint64) (*model.LoanDepartmentRoles, error) {
+	var role model.LoanDepartmentRoles
+
+	err := d.db.WithContext(ctx).
+		Where("department_id = ?", departmentID).
+		First(&role).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &role, nil
 }
 
 func (d *loanDepartmentRolesDao) deleteCache(ctx context.Context, id uint64) error {

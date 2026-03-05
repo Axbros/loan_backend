@@ -366,16 +366,23 @@ func (d *loanUsersDao) GetByColumns(
 		return nil, 0, errors.New("query params error: " + err.Error())
 	}
 
-	// 基础查询：users + departments
 	base := d.db.WithContext(ctx).
 		Table("loan_users u").
 		Joins("INNER JOIN loan_departments d ON u.department_id = d.id").
-		Where(queryStr, args...)
+		Joins("LEFT JOIN loan_department_roles rd ON rd.department_id = d.id AND rd.deleted_at IS NULL").
+		Joins("LEFT JOIN loan_roles r ON r.id = rd.role_id AND r.deleted_at IS NULL").
+		Where("u.deleted_at IS NULL").
+		Where("d.deleted_at IS NULL")
 
-	// count（注意：count 用 base，但不要带 limit/offset/order）
+	if queryStr != "" {
+		base = base.Where(queryStr, args...)
+	}
+
 	var total int64
 	if params.Sort != "ignore count" {
-		if err := base.Count(&total).Error; err != nil {
+		// 如果你已经加了 uk_department_id，这里 Count 不会被放大
+		// 保险起见也可以 Distinct("u.id")
+		if err := base.Distinct("u.id").Count(&total).Error; err != nil {
 			return nil, 0, err
 		}
 		if total == 0 {
@@ -383,9 +390,7 @@ func (d *loanUsersDao) GetByColumns(
 		}
 	}
 
-	// 分页/排序
 	order, limit, offset := params.ConvertToPage()
-
 	records := make([]*types.LoanUsersObjTable, 0, limit)
 
 	err = base.
@@ -393,6 +398,7 @@ func (d *loanUsersDao) GetByColumns(
 			u.id,
 			u.username,
 			d.name AS department,
+			r.name AS department_role,
 			u.mfa_enabled,
 			u.mfa_required,
 			u.status,

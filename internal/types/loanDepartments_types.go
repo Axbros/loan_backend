@@ -24,6 +24,7 @@ type UpdateLoanDepartmentsByIDRequest struct {
 	Name        string `json:"name" binding:""`
 	AdminUserID int64  `json:"admin_user_id" binding:""`
 	Status      int    `json:"status" binding:""`
+	RoleID      uint64 `json:"role_id" binding:""`
 }
 
 // LoanDepartmentsObjDetail detail
@@ -44,6 +45,7 @@ type LoanDepartmentsObjTable struct {
 	AdminUser string     `json:"adminUser"`
 	Status    int        `json:"status"`
 	CreatedAt *time.Time `json:"createdAt"`
+	Role      string     `json:"role"`
 	UserCount int64      `json:"userCount"`
 }
 

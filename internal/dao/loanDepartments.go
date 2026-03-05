@@ -179,6 +179,8 @@ func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Par
 		Table("loan_departments AS d").
 		Joins("INNER JOIN loan_users AS u ON d.admin_user_id = u.id").
 		Joins("LEFT JOIN loan_users lu ON lu.department_id = d.id").
+		Joins("LEFT JOIN loan_department_roles rd ON rd.department_id = d.id AND rd.deleted_at IS NULL").
+		Joins("LEFT JOIN loan_roles r ON r.id = rd.role_id AND r.deleted_at IS NULL").
 		Where("d.deleted_at IS NULL")
 
 	// select 里用 COUNT(lu.id) AS user_count
@@ -192,7 +194,9 @@ func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Par
 	var total int64
 	if params.Sort != "ignore count" {
 		// 注意：这里 Count 需要基于 d 表，否则 join 可能影响计数（虽然你这个 1-1 一般没问题）
-		err = base.Select("d.id").Count(&total).Error
+		err = base.
+			Distinct("d.id").
+			Count(&total).Error
 		if err != nil {
 			return nil, 0, err
 		}
@@ -205,7 +209,15 @@ func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Par
 	order, limit, offset := params.ConvertToPage()
 
 	err = base.
-		Select(`d.id, d.name, u.username AS admin_user, d.status, d.created_at,COUNT(lu.id) AS user_count`).
+		Select(`
+        d.id,
+        d.name,
+        u.username AS admin_user,
+        d.status,
+        d.created_at,
+        COUNT(DISTINCT lu.id) AS user_count,
+        COALESCE(GROUP_CONCAT(DISTINCT r.name ORDER BY r.id SEPARATOR ','), '') AS role
+    `).
 		Group("d.id, d.name, u.username, d.status, d.created_at").
 		Order(order).
 		Limit(limit).

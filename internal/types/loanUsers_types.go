@@ -65,9 +65,10 @@ type LoanUsersObjSimple struct {
 }
 
 type LoanUsersObjTable struct {
-	ID         uint64 `json:"id" gorm:"column:id"`
-	Username   string `json:"username" gorm:"column:username"`
-	Department string `json:"department" gorm:"column:department"`
+	ID             uint64 `json:"id" gorm:"column:id"`
+	Username       string `json:"username" gorm:"column:username"`
+	Department     string `json:"department" gorm:"column:department"`
+	DepartmentRole string `json:"departmentRole" gorm:"column:department_role"`
 
 	MfaEnabled  int `json:"mfaEnabled" gorm:"column:mfa_enabled"`
 	MfaRequired int `json:"mfaRequired" gorm:"column:mfa_required"`

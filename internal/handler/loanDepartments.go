@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"github.com/go-dev-frame/sponge/pkg/copier"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
@@ -37,7 +38,8 @@ type LoanDepartmentsHandler interface {
 }
 
 type loanDepartmentsHandler struct {
-	iDao dao.LoanDepartmentsDao
+	iDao              dao.LoanDepartmentsDao
+	roleDepartmentDao dao.LoanDepartmentRolesDao
 }
 
 // NewLoanDepartmentsHandler creating the handler interface
@@ -46,6 +48,10 @@ func NewLoanDepartmentsHandler() LoanDepartmentsHandler {
 		iDao: dao.NewLoanDepartmentsDao(
 			database.GetDB(), // db driver is mysql
 			cache.NewLoanDepartmentsCache(database.GetCacheType()),
+		),
+		roleDepartmentDao: dao.NewLoanDepartmentRolesDao(
+			database.GetDB(),
+			cache.NewLoanDepartmentRolesCache(database.GetCacheType()),
 		),
 	}
 }
@@ -159,6 +165,33 @@ func (h *loanDepartmentsHandler) UpdateByID(c *gin.Context) {
 		return
 	}
 
+	record, err := h.roleDepartmentDao.GetByDepartmentID(ctx, id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 不存在就新增
+			newRecord := &model.LoanDepartmentRoles{
+				DepartmentID: id,
+				RoleID:       form.RoleID,
+			}
+			if err := h.roleDepartmentDao.Create(ctx, newRecord); err != nil {
+				logger.Error("Create LoanDepartmentRoles error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
+				response.Error(c, ecode.ErrCreateLoanDepartmentRoles)
+				return
+			}
+		} else {
+			logger.Error("GetByDepartmentID error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrGetByConditionLoanDepartmentRoles)
+			return
+		}
+	} else {
+		// 存在就更新
+		record.RoleID = form.RoleID
+		if err := h.roleDepartmentDao.UpdateByID(ctx, record); err != nil {
+			logger.Error("UpdateByID LoanDepartmentRoles error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
+			response.Error(c, ecode.ErrUpdateByIDLoanDepartmentRoles)
+			return
+		}
+	}
 	response.Success(c)
 }
 
