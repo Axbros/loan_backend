@@ -178,7 +178,7 @@ func (d *loanDepartmentsDao) GetByColumns(ctx context.Context, params *query.Par
 	base := d.db.WithContext(ctx).
 		Table("loan_departments AS d").
 		Joins("INNER JOIN loan_users AS u ON d.admin_user_id = u.id").
-		Joins("LEFT JOIN loan_users lu ON lu.department_id = d.id").
+		Joins("LEFT JOIN loan_users lu   ON lu.department_id = d.id AND lu.deleted_at IS NULL").
 		Joins("LEFT JOIN loan_department_roles rd ON rd.department_id = d.id AND rd.deleted_at IS NULL").
 		Joins("LEFT JOIN loan_roles r ON r.id = rd.role_id AND r.deleted_at IS NULL").
 		Where("d.deleted_at IS NULL")
