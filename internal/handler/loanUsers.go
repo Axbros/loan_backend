@@ -439,9 +439,13 @@ func (h *loanUsersHandler) Me(c *gin.Context) {
 		response.Output(c, ecode.InternalServerError.ToHTTPCode())
 		return
 	}
-	if user == nil || user.ID == 0 || user.Status != 1 {
-		response.Out(c, ecode.Unauthorized)
+	if user == nil || user.ID == 0 {
+		response.Out(c, ecode.ErrListLoanUsers)
 		return
+	}
+
+	if user.Status != 1 {
+		response.Error(c, ecode.AccountFreeze)
 	}
 
 	roles, err := h.iDao.GetRoleCodesByUserID(ctx, uid) // 返回 []string
@@ -451,7 +455,7 @@ func (h *loanUsersHandler) Me(c *gin.Context) {
 		return
 	}
 
-	perms, err := h.iDao.GetPermCodesByUserID(ctx, uid) // 返回 []string
+	perms, err := h.iDao.GetPermissionCodesByUserID(ctx, uid) // 返回 []string
 	if err != nil {
 		logger.Error("GetPermCodesByUserID error", logger.Err(err), middleware.GCtxRequestIDField(c))
 		response.Output(c, ecode.InternalServerError.ToHTTPCode())

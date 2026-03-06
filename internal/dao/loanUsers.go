@@ -39,7 +39,7 @@ type LoanUsersDao interface {
 
 	GetByUsername(ctx context.Context, username string) (*model.LoanUsers, error)
 	GetRoleCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
-	GetPermCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
+	GetPermissionCodesByUserID(ctx context.Context, uid uint64) ([]string, error)
 	GetIDAndUserNameMapList(ctx context.Context) (map[uint64]string, error)
 	ClearPrimaryMFADevices(ctx context.Context, userID uint64) error
 	CreateMFADevice(ctx context.Context, device *model.LoanMfaDevices) error
@@ -214,46 +214,26 @@ func (d *loanUsersDao) GetRoleCodesByUserID(ctx context.Context, userID uint64) 
 	}
 	return roleCodes, nil
 }
-func (d *loanUsersDao) GetPermCodesByUserID(ctx context.Context, userID uint64) ([]string, error) {
-	// 1️⃣ 先判断是否 admin（id=1 或 code=admin）
-	var isAdmin int64
+func (d *loanUsersDao) GetPermissionCodesByUserID(ctx context.Context, userID uint64) ([]string, error) {
+	var permissionCodes []string
 
 	err := d.db.WithContext(ctx).
-		Table("loan_user_roles ur").
-		Joins("JOIN loan_roles r ON r.id = ur.role_id AND r.deleted_at IS NULL").
-		Where("ur.user_id = ? AND ur.deleted_at IS NULL", userID).
-		Where("r.status = 1").
-		Where("r.id = ? OR r.code = ?", 1, "admin").
-		Limit(1).
-		Count(&isAdmin).Error
-	if err != nil {
-		return nil, err
-	}
-
-	// ⭐ admin 直接 bypass
-	if isAdmin > 0 {
-		return []string{}, nil
-	}
-
-	// 2️⃣ 普通用户：查权限
-	var permCodes []string
-	err = d.db.WithContext(ctx).
-		Table("loan_user_roles ur").
+		Table("loan_users u").
 		Select("DISTINCT p.code").
-		Joins("JOIN loan_roles r ON r.id = ur.role_id AND r.deleted_at IS NULL AND r.status = 1").
-		Joins("JOIN loan_role_permissions rp ON rp.role_id = ur.role_id AND rp.deleted_at IS NULL").
-		Joins("JOIN loan_permissions p ON p.id = rp.permission_id AND p.deleted_at IS NULL").
-		Where("ur.user_id = ? AND ur.deleted_at IS NULL", userID).
+		Joins("INNER JOIN loan_department_roles dr ON dr.department_id = u.department_id").
+		Joins("INNER JOIN loan_role_permissions rp ON rp.role_id = dr.role_id").
+		Joins("INNER JOIN loan_permissions p ON p.id = rp.permission_id").
+		Where("u.id = ?", userID).
 		Order("p.code ASC").
-		Scan(&permCodes).Error
+		Scan(&permissionCodes).Error
 	if err != nil {
 		return nil, err
 	}
 
-	if permCodes == nil {
-		permCodes = []string{}
+	if permissionCodes == nil {
+		permissionCodes = []string{}
 	}
-	return permCodes, nil
+	return permissionCodes, nil
 }
 
 func (d *loanUsersDao) deleteCache(ctx context.Context, id uint64) error {

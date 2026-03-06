@@ -28,5 +28,6 @@ var (
 	ErrValidateSecret          = errcode.NewError(loanUsersBaseCode+18, "failed to validate secret")
 	MFAOTPRequired             = errcode.NewError(loanUsersBaseCode+19, "mfa OTP required")
 	InvalidOTP                 = errcode.NewError(loanUsersBaseCode+20, "invalid OTP")
+	AccountFreeze              = errcode.NewError(loanUsersBaseCode+21, "account is freeze")
 	// error codes are globally unique, adding 1 to the previous error code
 )
