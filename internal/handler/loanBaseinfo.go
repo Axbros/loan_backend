@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"loan/internal/tool"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -38,11 +37,6 @@ type LoanBaseinfoHandler interface {
 	List(c *gin.Context)
 	Review(c *gin.Context)
 	WithAuditRecordList(c *gin.Context)
-
-	DeleteByIDs(c *gin.Context)
-	GetByCondition(c *gin.Context)
-	ListByIDs(c *gin.Context)
-	ListByLastID(c *gin.Context)
 }
 
 type loanBaseinfoHandler struct {
@@ -614,171 +608,6 @@ func (h *loanBaseinfoHandler) List(c *gin.Context) {
 	response.Success(c, gin.H{
 		"records": data,
 		"total":   total,
-	})
-}
-
-// DeleteByIDs batch delete loanBaseinfo by ids
-// @Summary Batch delete loanBaseinfo by ids
-// @Description Deletes multiple loanBaseinfo by a list of id
-// @Tags loanBaseinfo
-// @Param data body types.DeleteLoanBaseinfosByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.DeleteLoanBaseinfosByIDsReply{}
-// @Router /api/v1/loanBaseinfo/delete/ids [post]
-// @Security BearerAuth
-func (h *loanBaseinfoHandler) DeleteByIDs(c *gin.Context) {
-	form := &types.DeleteLoanBaseinfosByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	err = h.iDao.DeleteByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	response.Success(c)
-}
-
-// GetByCondition get a loanBaseinfo by custom condition
-// @Summary Get a loanBaseinfo by custom condition
-// @Description Returns a single loanBaseinfo that matches the specified filter conditions.
-// @Tags loanBaseinfo
-// @Param data body types.Conditions true "query condition"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.GetLoanBaseinfoByConditionReply{}
-// @Router /api/v1/loanBaseinfo/condition [post]
-// @Security BearerAuth
-func (h *loanBaseinfoHandler) GetByCondition(c *gin.Context) {
-	form := &types.GetLoanBaseinfoByConditionRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-	err = form.Conditions.CheckValid()
-	if err != nil {
-		logger.Warn("Parameters error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanBaseinfo, err := h.iDao.GetByCondition(ctx, &form.Conditions)
-	if err != nil {
-		if errors.Is(err, database.ErrRecordNotFound) {
-			logger.Warn("GetByCondition not found", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Error(c, ecode.NotFound)
-		} else {
-			logger.Error("GetByCondition error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		}
-		return
-	}
-
-	data := &types.LoanBaseinfoObjDetail{}
-	err = copier.Copy(data, loanBaseinfo)
-	if err != nil {
-		response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
-		return
-	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
-
-	response.Success(c, gin.H{"loanBaseinfo": data})
-}
-
-// ListByIDs batch get loanBaseinfo by ids
-// @Summary Batch get loanBaseinfo by ids
-// @Description Returns a list of loanBaseinfo that match the list of id.
-// @Tags loanBaseinfo
-// @Param data body types.ListLoanBaseinfosByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.ListLoanBaseinfosByIDsReply{}
-// @Router /api/v1/loanBaseinfo/list/ids [post]
-// @Security BearerAuth
-func (h *loanBaseinfoHandler) ListByIDs(c *gin.Context) {
-	form := &types.ListLoanBaseinfosByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanBaseinfoMap, err := h.iDao.GetByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	loanBaseinfos := []*types.LoanBaseinfoObjDetail{}
-	for _, id := range form.IDs {
-		if v, ok := loanBaseinfoMap[id]; ok {
-			record, err := convertLoanBaseinfo(v)
-			if err != nil {
-				response.Error(c, ecode.ErrListLoanBaseinfo)
-				return
-			}
-			loanBaseinfos = append(loanBaseinfos, record)
-		}
-	}
-
-	response.Success(c, gin.H{
-		"loanBaseinfos": loanBaseinfos,
-	})
-}
-
-// ListByLastID get a paginated list of loanBaseinfos by last id
-// @Summary Get a paginated list of loanBaseinfos by last id
-// @Description Returns a paginated list of loanBaseinfos starting after a given last id, useful for cursor-based pagination.
-// @Tags loanBaseinfo
-// @Accept json
-// @Produce json
-// @Param lastID query int false "last id, default is MaxInt32" default(0)
-// @Param limit query int false "number per page" default(10)
-// @Param sort query string false "sort by column name of table, and the "-" sign before column name indicates reverse order" default(-id)
-// @Success 200 {object} types.ListLoanBaseinfosReply{}
-// @Router /api/v1/loanBaseinfo/list [get]
-// @Security BearerAuth
-func (h *loanBaseinfoHandler) ListByLastID(c *gin.Context) {
-	lastID := utils.StrToUint64(c.Query("lastID"))
-	if lastID == 0 {
-		lastID = math.MaxInt32
-	}
-	limit := utils.StrToInt(c.Query("limit"))
-	if limit == 0 {
-		limit = 10
-	}
-	sort := c.Query("sort")
-
-	ctx := middleware.WrapCtx(c)
-	loanBaseinfos, err := h.iDao.GetByLastID(ctx, lastID, limit, sort)
-	if err != nil {
-		logger.Error("GetByLastID error", logger.Err(err), logger.Uint64("lastID", lastID), logger.Int("limit", limit), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	data, err := convertLoanBaseinfos(loanBaseinfos)
-	if err != nil {
-		response.Error(c, ecode.ErrListByLastIDLoanBaseinfo)
-		return
-	}
-
-	response.Success(c, gin.H{
-		"loanBaseinfos": data,
 	})
 }
 

@@ -30,8 +30,4 @@ func loanCollectionLogsRouter(group *gin.RouterGroup, h handler.LoanCollectionLo
 	g.GET("/:id", h.GetByID)                 // [get] /api/v1/loanCollectionLogs/:id
 	g.POST("/list", h.List)                  // [post] /api/v1/loanCollectionLogs/list
 
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanCollectionLogs/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanCollectionLogs/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanCollectionLogs/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanCollectionLogs/list
 }

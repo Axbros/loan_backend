@@ -32,11 +32,6 @@ func loanRepaymentTransactionsRouter(group *gin.RouterGroup, h handler.LoanRepay
 	g.GET("/:id", h.GetByID)                 // [get] /api/v1/loanRepaymentTransactions/:id
 	g.POST("/list", h.List)                  // [post] /api/v1/loanRepaymentTransactions/list
 
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanRepaymentTransactions/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanRepaymentTransactions/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanRepaymentTransactions/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanRepaymentTransactions/list
-
 	g.POST("/loan-info", h.DetailByScheduleID)
 	g.POST("/history", h.History)
 	g.POST("/upload-voucher", h.UploadVoucher)

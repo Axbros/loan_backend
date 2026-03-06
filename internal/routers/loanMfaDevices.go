@@ -29,8 +29,4 @@ func loanMfaDevicesRouter(group *gin.RouterGroup, h handler.LoanMfaDevicesHandle
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanMfaDevices/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanMfaDevices/list
 
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanMfaDevices/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanMfaDevices/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanMfaDevices/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanMfaDevices/list
 }

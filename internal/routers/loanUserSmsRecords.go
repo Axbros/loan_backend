@@ -29,8 +29,4 @@ func loanUserSmsRecordsRouter(group *gin.RouterGroup, h handler.LoanUserSmsRecor
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanUserSmsRecords/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanUserSmsRecords/list
 
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanUserSmsRecords/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanUserSmsRecords/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanUserSmsRecords/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanUserSmsRecords/list
 }

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"math"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,11 +28,6 @@ type LoanLoginAuditHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
-
-	DeleteByIDs(c *gin.Context)
-	GetByCondition(c *gin.Context)
-	ListByIDs(c *gin.Context)
-	ListByLastID(c *gin.Context)
 }
 
 type loanLoginAuditHandler struct {
@@ -239,171 +233,6 @@ func (h *loanLoginAuditHandler) List(c *gin.Context) {
 	response.Success(c, gin.H{
 		"loanLoginAudits": data,
 		"total":           total,
-	})
-}
-
-// DeleteByIDs batch delete loanLoginAudit by ids
-// @Summary Batch delete loanLoginAudit by ids
-// @Description Deletes multiple loanLoginAudit by a list of id
-// @Tags loanLoginAudit
-// @Param data body types.DeleteLoanLoginAuditsByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.DeleteLoanLoginAuditsByIDsReply{}
-// @Router /api/v1/loanLoginAudit/delete/ids [post]
-// @Security BearerAuth
-func (h *loanLoginAuditHandler) DeleteByIDs(c *gin.Context) {
-	form := &types.DeleteLoanLoginAuditsByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	err = h.iDao.DeleteByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	response.Success(c)
-}
-
-// GetByCondition get a loanLoginAudit by custom condition
-// @Summary Get a loanLoginAudit by custom condition
-// @Description Returns a single loanLoginAudit that matches the specified filter conditions.
-// @Tags loanLoginAudit
-// @Param data body types.Conditions true "query condition"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.GetLoanLoginAuditByConditionReply{}
-// @Router /api/v1/loanLoginAudit/condition [post]
-// @Security BearerAuth
-func (h *loanLoginAuditHandler) GetByCondition(c *gin.Context) {
-	form := &types.GetLoanLoginAuditByConditionRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-	err = form.Conditions.CheckValid()
-	if err != nil {
-		logger.Warn("Parameters error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanLoginAudit, err := h.iDao.GetByCondition(ctx, &form.Conditions)
-	if err != nil {
-		if errors.Is(err, database.ErrRecordNotFound) {
-			logger.Warn("GetByCondition not found", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Error(c, ecode.NotFound)
-		} else {
-			logger.Error("GetByCondition error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		}
-		return
-	}
-
-	data := &types.LoanLoginAuditObjDetail{}
-	err = copier.Copy(data, loanLoginAudit)
-	if err != nil {
-		response.Error(c, ecode.ErrGetByIDLoanLoginAudit)
-		return
-	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
-
-	response.Success(c, gin.H{"loanLoginAudit": data})
-}
-
-// ListByIDs batch get loanLoginAudit by ids
-// @Summary Batch get loanLoginAudit by ids
-// @Description Returns a list of loanLoginAudit that match the list of id.
-// @Tags loanLoginAudit
-// @Param data body types.ListLoanLoginAuditsByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.ListLoanLoginAuditsByIDsReply{}
-// @Router /api/v1/loanLoginAudit/list/ids [post]
-// @Security BearerAuth
-func (h *loanLoginAuditHandler) ListByIDs(c *gin.Context) {
-	form := &types.ListLoanLoginAuditsByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanLoginAuditMap, err := h.iDao.GetByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	loanLoginAudits := []*types.LoanLoginAuditObjDetail{}
-	for _, id := range form.IDs {
-		if v, ok := loanLoginAuditMap[id]; ok {
-			record, err := convertLoanLoginAudit(v)
-			if err != nil {
-				response.Error(c, ecode.ErrListLoanLoginAudit)
-				return
-			}
-			loanLoginAudits = append(loanLoginAudits, record)
-		}
-	}
-
-	response.Success(c, gin.H{
-		"loanLoginAudits": loanLoginAudits,
-	})
-}
-
-// ListByLastID get a paginated list of loanLoginAudits by last id
-// @Summary Get a paginated list of loanLoginAudits by last id
-// @Description Returns a paginated list of loanLoginAudits starting after a given last id, useful for cursor-based pagination.
-// @Tags loanLoginAudit
-// @Accept json
-// @Produce json
-// @Param lastID query int false "last id, default is MaxInt32" default(0)
-// @Param limit query int false "number per page" default(10)
-// @Param sort query string false "sort by column name of table, and the "-" sign before column name indicates reverse order" default(-id)
-// @Success 200 {object} types.ListLoanLoginAuditsReply{}
-// @Router /api/v1/loanLoginAudit/list [get]
-// @Security BearerAuth
-func (h *loanLoginAuditHandler) ListByLastID(c *gin.Context) {
-	lastID := utils.StrToUint64(c.Query("lastID"))
-	if lastID == 0 {
-		lastID = math.MaxInt32
-	}
-	limit := utils.StrToInt(c.Query("limit"))
-	if limit == 0 {
-		limit = 10
-	}
-	sort := c.Query("sort")
-
-	ctx := middleware.WrapCtx(c)
-	loanLoginAudits, err := h.iDao.GetByLastID(ctx, lastID, limit, sort)
-	if err != nil {
-		logger.Error("GetByLastID error", logger.Err(err), logger.Uint64("lastID", lastID), logger.Int("limit", limit), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	data, err := convertLoanLoginAudits(loanLoginAudits)
-	if err != nil {
-		response.Error(c, ecode.ErrListByLastIDLoanLoginAudit)
-		return
-	}
-
-	response.Success(c, gin.H{
-		"loanLoginAudits": data,
 	})
 }
 

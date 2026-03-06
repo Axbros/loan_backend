@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"math"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,11 +28,6 @@ type LoanReferralVisitsHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
-
-	DeleteByIDs(c *gin.Context)
-	GetByCondition(c *gin.Context)
-	ListByIDs(c *gin.Context)
-	ListByLastID(c *gin.Context)
 }
 
 type loanReferralVisitsHandler struct {
@@ -239,171 +233,6 @@ func (h *loanReferralVisitsHandler) List(c *gin.Context) {
 	response.Success(c, gin.H{
 		"loanReferralVisitss": data,
 		"total":               total,
-	})
-}
-
-// DeleteByIDs batch delete loanReferralVisits by ids
-// @Summary Batch delete loanReferralVisits by ids
-// @Description Deletes multiple loanReferralVisits by a list of id
-// @Tags loanReferralVisits
-// @Param data body types.DeleteLoanReferralVisitssByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.DeleteLoanReferralVisitssByIDsReply{}
-// @Router /api/v1/loanReferralVisits/delete/ids [post]
-// @Security BearerAuth
-func (h *loanReferralVisitsHandler) DeleteByIDs(c *gin.Context) {
-	form := &types.DeleteLoanReferralVisitssByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	err = h.iDao.DeleteByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	response.Success(c)
-}
-
-// GetByCondition get a loanReferralVisits by custom condition
-// @Summary Get a loanReferralVisits by custom condition
-// @Description Returns a single loanReferralVisits that matches the specified filter conditions.
-// @Tags loanReferralVisits
-// @Param data body types.Conditions true "query condition"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.GetLoanReferralVisitsByConditionReply{}
-// @Router /api/v1/loanReferralVisits/condition [post]
-// @Security BearerAuth
-func (h *loanReferralVisitsHandler) GetByCondition(c *gin.Context) {
-	form := &types.GetLoanReferralVisitsByConditionRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-	err = form.Conditions.CheckValid()
-	if err != nil {
-		logger.Warn("Parameters error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanReferralVisits, err := h.iDao.GetByCondition(ctx, &form.Conditions)
-	if err != nil {
-		if errors.Is(err, database.ErrRecordNotFound) {
-			logger.Warn("GetByCondition not found", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Error(c, ecode.NotFound)
-		} else {
-			logger.Error("GetByCondition error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		}
-		return
-	}
-
-	data := &types.LoanReferralVisitsObjDetail{}
-	err = copier.Copy(data, loanReferralVisits)
-	if err != nil {
-		response.Error(c, ecode.ErrGetByIDLoanReferralVisits)
-		return
-	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
-
-	response.Success(c, gin.H{"loanReferralVisits": data})
-}
-
-// ListByIDs batch get loanReferralVisits by ids
-// @Summary Batch get loanReferralVisits by ids
-// @Description Returns a list of loanReferralVisits that match the list of id.
-// @Tags loanReferralVisits
-// @Param data body types.ListLoanReferralVisitssByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.ListLoanReferralVisitssByIDsReply{}
-// @Router /api/v1/loanReferralVisits/list/ids [post]
-// @Security BearerAuth
-func (h *loanReferralVisitsHandler) ListByIDs(c *gin.Context) {
-	form := &types.ListLoanReferralVisitssByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanReferralVisitsMap, err := h.iDao.GetByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	loanReferralVisitss := []*types.LoanReferralVisitsObjDetail{}
-	for _, id := range form.IDs {
-		if v, ok := loanReferralVisitsMap[id]; ok {
-			record, err := convertLoanReferralVisits(v)
-			if err != nil {
-				response.Error(c, ecode.ErrListLoanReferralVisits)
-				return
-			}
-			loanReferralVisitss = append(loanReferralVisitss, record)
-		}
-	}
-
-	response.Success(c, gin.H{
-		"loanReferralVisitss": loanReferralVisitss,
-	})
-}
-
-// ListByLastID get a paginated list of loanReferralVisitss by last id
-// @Summary Get a paginated list of loanReferralVisitss by last id
-// @Description Returns a paginated list of loanReferralVisitss starting after a given last id, useful for cursor-based pagination.
-// @Tags loanReferralVisits
-// @Accept json
-// @Produce json
-// @Param lastID query int false "last id, default is MaxInt32" default(0)
-// @Param limit query int false "number per page" default(10)
-// @Param sort query string false "sort by column name of table, and the "-" sign before column name indicates reverse order" default(-id)
-// @Success 200 {object} types.ListLoanReferralVisitssReply{}
-// @Router /api/v1/loanReferralVisits/list [get]
-// @Security BearerAuth
-func (h *loanReferralVisitsHandler) ListByLastID(c *gin.Context) {
-	lastID := utils.StrToUint64(c.Query("lastID"))
-	if lastID == 0 {
-		lastID = math.MaxInt32
-	}
-	limit := utils.StrToInt(c.Query("limit"))
-	if limit == 0 {
-		limit = 10
-	}
-	sort := c.Query("sort")
-
-	ctx := middleware.WrapCtx(c)
-	loanReferralVisitss, err := h.iDao.GetByLastID(ctx, lastID, limit, sort)
-	if err != nil {
-		logger.Error("GetByLastID error", logger.Err(err), logger.Uint64("lastID", lastID), logger.Int("limit", limit), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	data, err := convertLoanReferralVisitss(loanReferralVisitss)
-	if err != nil {
-		response.Error(c, ecode.ErrListByLastIDLoanReferralVisits)
-		return
-	}
-
-	response.Success(c, gin.H{
-		"loanReferralVisitss": data,
 	})
 }
 

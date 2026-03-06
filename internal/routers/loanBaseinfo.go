@@ -32,8 +32,4 @@ func loanBaseinfoRouter(group *gin.RouterGroup, h handler.LoanBaseinfoHandler) {
 	g.POST("/review", middleware.Auth(), h.Review)
 	g.POST("/withAuditRecord/list", h.WithAuditRecordList)
 
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanBaseinfo/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanBaseinfo/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanBaseinfo/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanBaseinfo/list
 }

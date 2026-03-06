@@ -23,14 +23,6 @@ func loanAuditsRouter(group *gin.RouterGroup, h handler.LoanAuditsHandler) {
 	// If jwt authentication is not required for all routes, authentication middleware can be added
 	// separately for only certain routes. In this case, g.Use(middleware.Auth()) above should not be used.
 
-	g.POST("/", h.Create)          // [post] /api/v1/loanAudits
-	g.DELETE("/:id", h.DeleteByID) // [delete] /api/v1/loanAudits/:id
-	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanAudits/:id
-	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanAudits/:id
-	g.POST("/list", h.List)        // [post] /api/v1/loanAudits/list
 	g.POST("/detail", h.Detail)
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanAudits/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanAudits/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanAudits/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanAudits/list
+
 }

@@ -29,8 +29,4 @@ func loanReferralVisitsRouter(group *gin.RouterGroup, h handler.LoanReferralVisi
 	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanReferralVisits/:id
 	g.POST("/list", h.List)        // [post] /api/v1/loanReferralVisits/list
 
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanReferralVisits/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanReferralVisits/condition
-	g.POST("/list/ids", h.ListByIDs)       // [post] /api/v1/loanReferralVisits/list/ids
-	g.GET("/list", h.ListByLastID)         // [get] /api/v1/loanReferralVisits/list
 }

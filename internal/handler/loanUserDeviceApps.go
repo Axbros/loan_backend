@@ -2,7 +2,6 @@ package handler
 
 import (
 	"errors"
-	"math"
 
 	"github.com/gin-gonic/gin"
 
@@ -29,11 +28,6 @@ type LoanUserDeviceAppsHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
-
-	DeleteByIDs(c *gin.Context)
-	GetByCondition(c *gin.Context)
-	ListByIDs(c *gin.Context)
-	ListByLastID(c *gin.Context)
 }
 
 type loanUserDeviceAppsHandler struct {
@@ -239,171 +233,6 @@ func (h *loanUserDeviceAppsHandler) List(c *gin.Context) {
 	response.Success(c, gin.H{
 		"loanUserDeviceAppss": data,
 		"total":               total,
-	})
-}
-
-// DeleteByIDs batch delete loanUserDeviceApps by ids
-// @Summary Batch delete loanUserDeviceApps by ids
-// @Description Deletes multiple loanUserDeviceApps by a list of id
-// @Tags loanUserDeviceApps
-// @Param data body types.DeleteLoanUserDeviceAppssByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.DeleteLoanUserDeviceAppssByIDsReply{}
-// @Router /api/v1/loanUserDeviceApps/delete/ids [post]
-// @Security BearerAuth
-func (h *loanUserDeviceAppsHandler) DeleteByIDs(c *gin.Context) {
-	form := &types.DeleteLoanUserDeviceAppssByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	err = h.iDao.DeleteByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	response.Success(c)
-}
-
-// GetByCondition get a loanUserDeviceApps by custom condition
-// @Summary Get a loanUserDeviceApps by custom condition
-// @Description Returns a single loanUserDeviceApps that matches the specified filter conditions.
-// @Tags loanUserDeviceApps
-// @Param data body types.Conditions true "query condition"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.GetLoanUserDeviceAppsByConditionReply{}
-// @Router /api/v1/loanUserDeviceApps/condition [post]
-// @Security BearerAuth
-func (h *loanUserDeviceAppsHandler) GetByCondition(c *gin.Context) {
-	form := &types.GetLoanUserDeviceAppsByConditionRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-	err = form.Conditions.CheckValid()
-	if err != nil {
-		logger.Warn("Parameters error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanUserDeviceApps, err := h.iDao.GetByCondition(ctx, &form.Conditions)
-	if err != nil {
-		if errors.Is(err, database.ErrRecordNotFound) {
-			logger.Warn("GetByCondition not found", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Error(c, ecode.NotFound)
-		} else {
-			logger.Error("GetByCondition error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-			response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		}
-		return
-	}
-
-	data := &types.LoanUserDeviceAppsObjDetail{}
-	err = copier.Copy(data, loanUserDeviceApps)
-	if err != nil {
-		response.Error(c, ecode.ErrGetByIDLoanUserDeviceApps)
-		return
-	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
-
-	response.Success(c, gin.H{"loanUserDeviceApps": data})
-}
-
-// ListByIDs batch get loanUserDeviceApps by ids
-// @Summary Batch get loanUserDeviceApps by ids
-// @Description Returns a list of loanUserDeviceApps that match the list of id.
-// @Tags loanUserDeviceApps
-// @Param data body types.ListLoanUserDeviceAppssByIDsRequest true "id array"
-// @Accept json
-// @Produce json
-// @Success 200 {object} types.ListLoanUserDeviceAppssByIDsReply{}
-// @Router /api/v1/loanUserDeviceApps/list/ids [post]
-// @Security BearerAuth
-func (h *loanUserDeviceAppsHandler) ListByIDs(c *gin.Context) {
-	form := &types.ListLoanUserDeviceAppssByIDsRequest{}
-	err := c.ShouldBindJSON(form)
-	if err != nil {
-		logger.Warn("ShouldBindJSON error: ", logger.Err(err), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidParams)
-		return
-	}
-
-	ctx := middleware.WrapCtx(c)
-	loanUserDeviceAppsMap, err := h.iDao.GetByIDs(ctx, form.IDs)
-	if err != nil {
-		logger.Error("GetByIDs error", logger.Err(err), logger.Any("form", form), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	loanUserDeviceAppss := []*types.LoanUserDeviceAppsObjDetail{}
-	for _, id := range form.IDs {
-		if v, ok := loanUserDeviceAppsMap[id]; ok {
-			record, err := convertLoanUserDeviceApps(v)
-			if err != nil {
-				response.Error(c, ecode.ErrListLoanUserDeviceApps)
-				return
-			}
-			loanUserDeviceAppss = append(loanUserDeviceAppss, record)
-		}
-	}
-
-	response.Success(c, gin.H{
-		"loanUserDeviceAppss": loanUserDeviceAppss,
-	})
-}
-
-// ListByLastID get a paginated list of loanUserDeviceAppss by last id
-// @Summary Get a paginated list of loanUserDeviceAppss by last id
-// @Description Returns a paginated list of loanUserDeviceAppss starting after a given last id, useful for cursor-based pagination.
-// @Tags loanUserDeviceApps
-// @Accept json
-// @Produce json
-// @Param lastID query int false "last id, default is MaxInt32" default(0)
-// @Param limit query int false "number per page" default(10)
-// @Param sort query string false "sort by column name of table, and the "-" sign before column name indicates reverse order" default(-id)
-// @Success 200 {object} types.ListLoanUserDeviceAppssReply{}
-// @Router /api/v1/loanUserDeviceApps/list [get]
-// @Security BearerAuth
-func (h *loanUserDeviceAppsHandler) ListByLastID(c *gin.Context) {
-	lastID := utils.StrToUint64(c.Query("lastID"))
-	if lastID == 0 {
-		lastID = math.MaxInt32
-	}
-	limit := utils.StrToInt(c.Query("limit"))
-	if limit == 0 {
-		limit = 10
-	}
-	sort := c.Query("sort")
-
-	ctx := middleware.WrapCtx(c)
-	loanUserDeviceAppss, err := h.iDao.GetByLastID(ctx, lastID, limit, sort)
-	if err != nil {
-		logger.Error("GetByLastID error", logger.Err(err), logger.Uint64("lastID", lastID), logger.Int("limit", limit), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-
-	data, err := convertLoanUserDeviceAppss(loanUserDeviceAppss)
-	if err != nil {
-		response.Error(c, ecode.ErrListByLastIDLoanUserDeviceApps)
-		return
-	}
-
-	response.Success(c, gin.H{
-		"loanUserDeviceAppss": data,
 	})
 }
 

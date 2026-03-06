@@ -29,11 +29,6 @@ type LoanCollectionCasesDao interface {
 	GetByID(ctx context.Context, id uint64) (*model.LoanCollectionCases, error)
 	GetByColumns(ctx context.Context, params *query.Params) ([]*types.LoanCollectionCasesObjTable, int64, error)
 
-	DeleteByIDs(ctx context.Context, ids []uint64) error
-	GetByCondition(ctx context.Context, condition *query.Conditions) (*model.LoanCollectionCases, error)
-	GetByIDs(ctx context.Context, ids []uint64) (map[uint64]*model.LoanCollectionCases, error)
-	GetByLastID(ctx context.Context, lastID uint64, limit int, sort string) ([]*model.LoanCollectionCases, error)
-
 	CreateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanCollectionCases) (uint64, error)
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanCollectionCases) error
@@ -258,124 +253,6 @@ func (d *loanCollectionCasesDao) GetByColumns(ctx context.Context, params *query
 	}
 
 	return records, total, nil
-}
-
-// DeleteByIDs batch delete loanCollectionCases by ids
-func (d *loanCollectionCasesDao) DeleteByIDs(ctx context.Context, ids []uint64) error {
-	err := d.db.WithContext(ctx).Where("id IN (?)", ids).Delete(&model.LoanCollectionCases{}).Error
-	if err != nil {
-		return err
-	}
-
-	// delete cache
-	for _, id := range ids {
-		_ = d.deleteCache(ctx, id)
-	}
-
-	return nil
-}
-
-// GetByCondition get a loanCollectionCases by custom condition
-// For more details, please refer to https://go-sponge.com/component/data/custom-page-query.html#_2-condition-parameters-optional
-func (d *loanCollectionCasesDao) GetByCondition(ctx context.Context, c *query.Conditions) (*model.LoanCollectionCases, error) {
-	queryStr, args, err := c.ConvertToGorm(query.WithWhitelistNames(model.LoanCollectionCasesColumnNames))
-	if err != nil {
-		return nil, err
-	}
-
-	table := &model.LoanCollectionCases{}
-	err = d.db.WithContext(ctx).Where(queryStr, args...).First(table).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return table, nil
-}
-
-// GetByIDs Batch get loanCollectionCases by ids
-func (d *loanCollectionCasesDao) GetByIDs(ctx context.Context, ids []uint64) (map[uint64]*model.LoanCollectionCases, error) {
-	// no cache
-	if d.cache == nil {
-		var records []*model.LoanCollectionCases
-		err := d.db.WithContext(ctx).Where("id IN (?)", ids).Find(&records).Error
-		if err != nil {
-			return nil, err
-		}
-		itemMap := make(map[uint64]*model.LoanCollectionCases)
-		for _, record := range records {
-			itemMap[record.ID] = record
-		}
-		return itemMap, nil
-	}
-
-	// get form cache
-	itemMap, err := d.cache.MultiGet(ctx, ids)
-	if err != nil {
-		return nil, err
-	}
-
-	var missedIDs []uint64
-	for _, id := range ids {
-		if _, ok := itemMap[id]; !ok {
-			missedIDs = append(missedIDs, id)
-		}
-	}
-
-	// get missed data
-	if len(missedIDs) > 0 {
-		// find the id of an active placeholder, i.e. an id that does not exist in database
-		var realMissedIDs []uint64
-		for _, id := range missedIDs {
-			_, err = d.cache.Get(ctx, id)
-			if d.cache.IsPlaceholderErr(err) {
-				continue
-			}
-			realMissedIDs = append(realMissedIDs, id)
-		}
-
-		// get missed id from database
-		if len(realMissedIDs) > 0 {
-			var records []*model.LoanCollectionCases
-			var recordIDMap = make(map[uint64]struct{})
-			err = d.db.WithContext(ctx).Where("id IN (?)", realMissedIDs).Find(&records).Error
-			if err != nil {
-				return nil, err
-			}
-			if len(records) > 0 {
-				for _, record := range records {
-					itemMap[record.ID] = record
-					recordIDMap[record.ID] = struct{}{}
-				}
-				if err = d.cache.MultiSet(ctx, records, cache.LoanCollectionCasesExpireTime); err != nil {
-					logger.Warn("cache.MultiSet error", logger.Err(err), logger.Any("ids", records))
-				}
-				if len(records) == len(realMissedIDs) {
-					return itemMap, nil
-				}
-			}
-			for _, id := range realMissedIDs {
-				if _, ok := recordIDMap[id]; !ok {
-					if err = d.cache.SetPlaceholder(ctx, id); err != nil {
-						logger.Warn("cache.SetPlaceholder error", logger.Err(err), logger.Any("id", id))
-					}
-				}
-			}
-		}
-	}
-
-	return itemMap, nil
-}
-
-// GetByLastID Get a paginated list of loanCollectionCasess by last id
-func (d *loanCollectionCasesDao) GetByLastID(ctx context.Context, lastID uint64, limit int, sort string) ([]*model.LoanCollectionCases, error) {
-	page := query.NewPage(0, limit, sort)
-
-	records := []*model.LoanCollectionCases{}
-	err := d.db.WithContext(ctx).Order(page.Sort()).Limit(page.Limit()).Where("id < ?", lastID).Find(&records).Error
-	if err != nil {
-		return nil, err
-	}
-	return records, nil
 }
 
 // CreateByTx create a record in the database using the provided transaction
