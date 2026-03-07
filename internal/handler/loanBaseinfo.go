@@ -84,7 +84,7 @@ type AuditType int // 修正原Audit_Type命名，符合Go大驼峰规范
 const (
 	PreReviewType     = 1 //初审审核
 	FinanceReviewType = 2 //放款审核
-	IncomeReviewType  = 3 //回款审核
+	//IncomeReviewType  = 3 //回款审核
 )
 
 func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
@@ -121,20 +121,6 @@ func (h *loanBaseinfoHandler) WithAuditRecordList(c *gin.Context) {
 	})
 }
 
-// 新增：将请求的audit_type字符串（0/1/2）转换为AuditType枚举，同时做合法性校验
-func parseAuditType(auditTypeStr int) AuditType {
-	switch auditTypeStr {
-	case 1:
-		return PreReviewType
-	case 2:
-		return FinanceReviewType
-	case 3:
-		return IncomeReviewType
-	default:
-		// 返回自定义的"无效审核类型"错误码（需在ecode中定义）
-		return -1
-	}
-}
 func (h *loanBaseinfoHandler) PreReview(c *gin.Context) {
 	h.review(c, PreReviewType)
 }
@@ -613,29 +599,6 @@ func convertSimpleLoanBaseinfoWithAuditRecord(loanBaseinfo *model.LoanBaseinfoWi
 	return data, nil
 }
 
-func convertLoanBaseinfo(loanBaseinfo *model.LoanBaseinfo) (*types.LoanBaseinfoObjDetail, error) {
-	data := &types.LoanBaseinfoObjDetail{}
-	err := copier.Copy(data, loanBaseinfo)
-	if err != nil {
-		return nil, err
-	}
-	// Note: if copier.Copy cannot assign a value to a field, add it here
-
-	return data, nil
-}
-
-func convertLoanBaseinfos(fromValues []*model.LoanBaseinfo) ([]*types.LoanBaseinfoObjDetail, error) {
-	toValues := []*types.LoanBaseinfoObjDetail{}
-	for _, v := range fromValues {
-		data, err := convertLoanBaseinfo(v)
-		if err != nil {
-			return nil, err
-		}
-		toValues = append(toValues, data)
-	}
-	return toValues, nil
-}
-
 func convertSimpleLoanBaseinfos(fromValues []*model.LoanBaseinfo) ([]*types.LoanBaseinfoSimpleObjDetail, error) {
 	toValues := []*types.LoanBaseinfoSimpleObjDetail{}
 	for _, v := range fromValues {
@@ -658,11 +621,6 @@ func convertSimpleLoanBaseinfosWithAuditRecord(fromValues []*model.LoanBaseinfoW
 		toValues = append(toValues, data)
 	}
 	return toValues, nil
-}
-
-func getCurrentTime() *time.Time {
-	now := time.Now()
-	return &now
 }
 
 func generateOrderNo(prefix string) string {
