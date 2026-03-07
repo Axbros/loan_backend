@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 
+	"loan/internal/authz"
 	"loan/internal/handler"
 )
 
@@ -30,12 +31,12 @@ func loanUsersRouter(group *gin.RouterGroup, h handler.LoanUsersHandler) {
 	g.GET("/refer", h.Refer)
 	g.GET("/mfa/setup", middleware.Auth(), h.SetUpMFA)
 	g.POST("/mfa/bind", middleware.Auth(), h.BindMFA)
-	g.POST("/", h.Create)          // [post] /api/v1/loanUsers
-	g.DELETE("/:id", h.DeleteByID) // [delete] /api/v1/loanUsers/:id
-	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanUsers/:id
-	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanUsers/:id
-	g.POST("/list", h.List)        // [post] /api/v1/loanUsers/list
-	g.GET("/collectUser/list", h.GetCollectUser)
-	g.POST("/delete/ids", h.DeleteByIDs)   // [post] /api/v1/loanUsers/delete/ids
-	g.POST("/condition", h.GetByCondition) // [post] /api/v1/loanUsers/condition
+	g.POST("/", middleware.Auth(), authz.RequirePerm("user:add"), h.Create)             // [post] /api/v1/loanUsers
+	g.DELETE("/:id", middleware.Auth(), authz.RequirePerm("user:delete"), h.DeleteByID) // [delete] /api/v1/loanUsers/:id
+	g.PUT("/:id", middleware.Auth(), authz.RequirePerm("user:update"), h.UpdateByID)    // [put] /api/v1/loanUsers/:id
+	g.GET("/:id", middleware.Auth(), authz.RequirePerm("user:view"), h.GetByID)         // [get] /api/v1/loanUsers/:id
+	g.POST("/list", middleware.Auth(), authz.RequirePerm("user:view"), h.List)          // [post] /api/v1/loanUsers/list
+	g.GET("/collectUser/list", middleware.Auth(), authz.RequirePerm("user:view"), h.GetCollectUser)
+	g.POST("/delete/ids", middleware.Auth(), authz.RequirePerm("user:delete"), h.DeleteByIDs) // [post] /api/v1/loanUsers/delete/ids
+	g.POST("/condition", middleware.Auth(), authz.RequirePerm("user:view"), h.GetByCondition) // [post] /api/v1/loanUsers/condition
 }

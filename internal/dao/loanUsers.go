@@ -224,6 +224,7 @@ func (d *loanUsersDao) GetPermissionCodesByUserID(ctx context.Context, userID ui
 		Joins("INNER JOIN loan_role_permissions rp ON rp.role_id = dr.role_id").
 		Joins("INNER JOIN loan_permissions p ON p.id = rp.permission_id").
 		Where("u.id = ?", userID).
+		Where("rp.deleted_at IS NULL").
 		Order("p.code ASC").
 		Scan(&permissionCodes).Error
 	if err != nil {

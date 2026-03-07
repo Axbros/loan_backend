@@ -4,6 +4,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 
+	"loan/internal/authz"
 	"loan/internal/handler"
 )
 
@@ -19,17 +20,19 @@ func loanBaseinfoRouter(group *gin.RouterGroup, h handler.LoanBaseinfoHandler) {
 	// JWT authentication reference: https://go-sponge.com/component/transport/gin.html#jwt-authorization-middleware
 
 	// All the following routes use jwt authentication, you also can use middleware.Auth(middleware.WithExtraVerify(fn))
-	//g.Use(middleware.Auth())
+	g.Use(middleware.Auth())
 
 	// If jwt authentication is not required for all routes, authentication middleware can be added
 	// separately for only certain routes. In this case, g.Use(middleware.Auth()) above should not be used.
 
-	g.POST("/", h.Create)          // [post] /api/v1/loanBaseinfo
-	g.DELETE("/:id", h.DeleteByID) // [delete] /api/v1/loanBaseinfo/:id
-	g.PUT("/:id", h.UpdateByID)    // [put] /api/v1/loanBaseinfo/:id
-	g.GET("/:id", h.GetByID)       // [get] /api/v1/loanBaseinfo/:id
-	g.POST("/list", h.List)        // [post] /api/v1/loanBaseinfo/list
-	g.POST("/review", middleware.Auth(), h.Review)
-	g.POST("/withAuditRecord/list", h.WithAuditRecordList)
+	g.POST("/", authz.RequirePerm("customer:add"), h.Create)
+	g.DELETE("/:id", authz.RequirePerm("customer:delete"), h.DeleteByID)
+	g.PUT("/:id", authz.RequirePerm("customer:update"), h.UpdateByID)
+	g.GET("/:id", authz.RequirePerm("customer:view"), h.GetByID)
+	g.POST("/list", authz.RequirePerm("customer:view"), h.List)
 
+	g.POST("/pre-review", authz.RequirePerm("loan:pre_review"), h.PreReview)
+	g.POST("/finance-review", authz.RequirePerm("loan:finance_review"), h.FinanceReview)
+
+	g.POST("/withAuditRecord/list", authz.RequirePerm("customer:view"), h.WithAuditRecordList)
 }

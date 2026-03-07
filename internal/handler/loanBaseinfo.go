@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"loan/internal/tool"
-	"strconv"
 	"strings"
 	"time"
 
@@ -35,7 +34,8 @@ type LoanBaseinfoHandler interface {
 	UpdateByID(c *gin.Context)
 	GetByID(c *gin.Context)
 	List(c *gin.Context)
-	Review(c *gin.Context)
+	PreReview(c *gin.Context)
+	FinanceReview(c *gin.Context)
 	WithAuditRecordList(c *gin.Context)
 }
 
@@ -79,13 +79,6 @@ func NewLoanBaseinfoHandler() LoanBaseinfoHandler {
 }
 
 type Audit_Status int
-
-const (
-	Rejected      Audit_Status = -1 // 机审拒绝
-	Pending       Audit_Status = 0
-	PreReview     Audit_Status = 1 //初审通过，等待财务审核
-	FinanceReview Audit_Status = 2 //财务审核通过，最终台
-)
 
 type AuditType int // 修正原Audit_Type命名，符合Go大驼峰规范
 const (
@@ -142,8 +135,15 @@ func parseAuditType(auditTypeStr int) AuditType {
 		return -1
 	}
 }
+func (h *loanBaseinfoHandler) PreReview(c *gin.Context) {
+	h.review(c, PreReviewType)
+}
 
-func (h *loanBaseinfoHandler) Review(c *gin.Context) {
+func (h *loanBaseinfoHandler) FinanceReview(c *gin.Context) {
+	h.review(c, FinanceReviewType)
+}
+
+func (h *loanBaseinfoHandler) review(c *gin.Context, forcedAuditType int) {
 	ctx := middleware.WrapCtx(c)
 
 	uid, ok := getUIDFromClaims(c)
@@ -159,12 +159,8 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	auditType := parseAuditType(form.AuditType)
-	if auditType == -1 {
-		logger.Warn("无效的审核类型", logger.String("audit_type", strconv.Itoa(form.AuditType)), middleware.GCtxRequestIDField(c))
-		response.Error(c, ecode.InvalidAuditType)
-		return
-	}
+	// 不再使用前端传入的 AuditType，统一由路由/handler 决定
+	auditType := forcedAuditType
 
 	// 0) MFA 必须启用（不进事务）
 	u, err := h.userDao.GetByID(ctx, uid)
@@ -180,7 +176,6 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 	}
 
 	// 1) MFA 校验（不进事务）
-	// 1) MFA 校验（提取成函数）
 	otpCode := strings.TrimSpace(form.MfaCode)
 	ok, err = tool.ValidateMFA(c, uid, otpCode)
 	if err != nil || !ok {
@@ -188,7 +183,7 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// 2) 开事务（显式 begin/commit/rollback + recover）
+	// 2) 开事务
 	db := database.GetDB()
 	tx := db.WithContext(ctx).Begin()
 	defer func() {
@@ -205,70 +200,55 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// 3) 事务内 DAO
-	//iDao := dao.NewLoanBaseinfoDao(tx, cache.NewLoanBaseinfoCache(database.GetCacheType()))
-	//auditDao := dao.NewLoanAuditsDao(tx, cache.NewLoanAuditsCache(database.GetCacheType()))
-	//channelDao := dao.NewLoanPaymentChannelsDao(tx, cache.NewLoanPaymentChannelsCache(database.GetCacheType()))
-	//disDao := dao.NewLoanDisbursementsDao(tx, cache.NewLoanDisbursementsCache(database.GetCacheType()))
-	//repayDao := dao.NewLoanRepaymentSchedulesDao(tx, cache.NewLoanRepaymentSchedulesCache(database.GetCacheType()))
-
-	// 4) 银行级：锁住 baseinfo 行，防止并发双审/双放款
+	// 3) 锁住 baseinfo 行
 	loanBaseinfoRecord := &model.LoanBaseinfo{}
 	if err := tx.
-		// 需要：import "gorm.io/gorm/clause"
 		Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("id = ?", form.CustomerID).
 		First(loanBaseinfoRecord).Error; err != nil {
-
 		_ = tx.Rollback().Error
 		logger.Warn("baseinfo not found / lock failed", logger.Err(err), logger.Uint64("customer_id", form.CustomerID), middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.ErrGetByIDLoanBaseinfo)
 		return
 	}
 
-	// 5) 状态机校验（按你们业务可调整）
-	//    示例规则：
-	//    - 已拒绝（-1）不允许再审核
-	//    - 财务审核必须在前置审核通过后才能执行（如果你们有这种要求）
+	// 4) 状态机校验
 	if loanBaseinfoRecord.AuditStatus == -1 {
 		_ = tx.Rollback().Error
-		response.Error(c, ecode.InvalidParams) // 你可以换成更合适的 ecode，例如 ErrAlreadyRejected
+		response.Error(c, ecode.InvalidParams)
 		return
 	}
 
-	// 如果你们要求按顺序：
-	// if form.AuditType == FinanceReviewType && loanBaseinfoRecord.AuditStatus != PreReviewType {
+	// 建议加顺序校验
+	if auditType == FinanceReviewType && loanBaseinfoRecord.AuditStatus != PreReviewType {
+		_ = tx.Rollback().Error
+		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	// 如果不允许重复初审通过，也可加
+	// if auditType == PreReviewType && loanBaseinfoRecord.AuditStatus == PreReviewType {
 	//     _ = tx.Rollback().Error
-	//     response.Error(c, ecode.InvalidParams) // 换成 ErrInvalidAuditFlow
+	//     response.Error(c, ecode.InvalidParams)
 	//     return
 	// }
 
-	// 6) 财务审核通过：幂等防重复放款（强烈建议）
-	//    做法：对 disbursement 做 FOR UPDATE 查询，若已存在则不再创建（避免重复放款）
+	// 5) 财务审核通过：放款 + 还款计划
 	var createdDisbursementID uint64
-	if form.AuditType == FinanceReviewType && form.AuditResult {
+	if auditType == FinanceReviewType && form.AuditResult {
 		if form.PaymentChannelID == 0 {
 			_ = tx.Rollback().Error
 			response.Error(c, ecode.ErrPaymentChannel)
 			return
 		}
 
-		// 可选：对支付渠道也加锁（一般不需要）
 		paymentChannelRecord, err := h.channelDao.GetByID(ctx, form.PaymentChannelID)
-		if err != nil {
-			_ = tx.Rollback().Error
-			response.Error(c, ecode.ErrGetByIDLoanPaymentChannels)
-			return
-		}
-		if paymentChannelRecord == nil {
+		if err != nil || paymentChannelRecord == nil {
 			_ = tx.Rollback().Error
 			response.Error(c, ecode.ErrGetByIDLoanPaymentChannels)
 			return
 		}
 
-		// 幂等检查：是否已经有 disbursement（用 tx 查并锁）
-		// 你需要有一个能按 baseinfo_id 查 disbursement 的查询；
-		// 如果你没有 dao 方法，就直接用 tx.Where 查表（下面示例直接用 tx）
 		existing := &model.LoanDisbursements{}
 		err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			Where("baseinfo_id = ?", form.CustomerID).
@@ -276,33 +256,24 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			First(existing).Error
 
 		if err == nil && existing != nil && existing.ID != 0 {
-			// ✅ 已放款（或已创建放款记录），这里按“幂等成功”处理：
-			// - 不再创建 disbursement/schedule
 			createdDisbursementID = existing.ID
 		} else if errors.Is(err, gorm.ErrRecordNotFound) {
-			// ✅ 不存在：创建 disbursement + schedule
 			if loanBaseinfoRecord.ApplicationAmount == 0 {
 				_ = tx.Rollback().Error
 				response.Error(c, ecode.InvalidParams)
 				return
 			}
 
-			var feeRate float32 = 0.0
+			var feeRate = 0
 			if paymentChannelRecord.PayoutFeeRate != 0 {
-				feeRate = paymentChannelRecord.PayoutFeeRate // 如 35 → 代表 35%
-			}
-			// 1. 校验申请金额（int64类型，分）
-			if loanBaseinfoRecord.ApplicationAmount == 0 {
-				_ = tx.Rollback().Error
-				response.Error(c, ecode.InvalidParams)
-				return
+				feeRate = paymentChannelRecord.PayoutFeeRate
 			}
 
 			applicationAmount := loanBaseinfoRecord.ApplicationAmount
-			// 先转成int64计算，避免float32精度丢失（核心！）
-			feeAmount := (applicationAmount * int64(feeRate)) / 100 // 手续费（分）
-			netAmount := applicationAmount - feeAmount              // 净金额（分）
-			disburseAmount := applicationAmount                     //单位是分
+
+			feeAmount := int64(float64(applicationAmount) * float64(feeRate) / 100)
+			netAmount := applicationAmount - feeAmount
+			disburseAmount := applicationAmount
 
 			now := time.Now()
 			currentTime := &now
@@ -311,13 +282,13 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 				BaseinfoID:           form.CustomerID,
 				DisburseAmount:       disburseAmount,
 				NetAmount:            netAmount,
-				Status:               1, // 已放款（如你们需要先“放款中”，可改为中间态）
+				Status:               1,
 				SourceReferrerUserID: loanBaseinfoRecord.ReferrerUserID,
 				AuditorUserID:        uid,
 				PayoutChannelID:      form.PaymentChannelID,
 				AuditedAt:            currentTime,
 				DisbursedAt:          currentTime,
-				PayoutOrderNo:        generateOrderNo("PO"), // 建议数据库层加唯一索引保证不重复
+				PayoutOrderNo:        generateOrderNo("PO"),
 			}
 
 			if _, err := h.disbursmentDao.CreateByTx(ctx, tx, disbursmentRecord); err != nil {
@@ -327,7 +298,6 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 			}
 			createdDisbursementID = disbursmentRecord.ID
 
-			// 还款计划：建议也做幂等（对 disbursement_id 唯一）
 			loanDays := loanBaseinfoRecord.LoanDays
 			if loanDays <= 0 {
 				loanDays = 30
@@ -359,18 +329,17 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 				return
 			}
 		} else {
-			// 查询出错
 			_ = tx.Rollback().Error
 			response.Error(c, ecode.InternalServerError)
 			return
 		}
 	}
 
-	// 7) 更新 baseinfo 审核状态（通过/拒绝都执行）
+	// 6) 更新审核状态
 	auditResult := -1
 	if form.AuditResult {
 		auditResult = 1
-		loanBaseinfoRecord.AuditStatus = form.AuditType
+		loanBaseinfoRecord.AuditStatus = auditType
 	} else {
 		loanBaseinfoRecord.AuditStatus = -1
 	}
@@ -381,14 +350,13 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// 8) 创建审核记录（通过/拒绝都执行）
+	// 7) 写审核记录
 	record := &model.LoanAudits{
 		AuditResult:   auditResult,
-		AuditType:     int(auditType),
+		AuditType:     auditType,
 		AuditComment:  form.Remark,
 		BaseinfoID:    form.CustomerID,
 		AuditorUserID: uid,
-		// 可选：把 disbursement_id、payment_channel_id 等也记录在 audits 里（更审计友好）
 	}
 
 	if _, err := h.auditDao.CreateByTx(ctx, tx, record); err != nil {
@@ -397,12 +365,13 @@ func (h *loanBaseinfoHandler) Review(c *gin.Context) {
 		return
 	}
 
-	// 9) commit
+	// 8) commit
 	if err := tx.Commit().Error; err != nil {
 		logger.Error("tx commit failed", logger.Err(err), middleware.GCtxRequestIDField(c))
 		response.Error(c, ecode.InternalServerError)
 		return
 	}
+
 	response.Success(c, gin.H{})
 }
 
