@@ -1,6 +1,7 @@
 package types
 
 import (
+	"loan/internal/model"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -21,23 +22,28 @@ type AuditRequest struct {
 
 // CreateLoanBaseinfoRequest request params
 type CreateLoanBaseinfoRequest struct {
-	FirstName  string `json:"firstName" binding:""`  // 姓
-	SecondName string `json:"secondName" binding:""` // 名
-	Age        int    `json:"age" binding:""`        // 年齡
-	Gender     string `json:"gender" binding:""`     // 性別
-	IdType     string `json:"idType" binding:""`     // 證件類型
-	Mobile     string `json:"mobile" binding:""`     //手机号码
-	IdNumber   string `json:"idNumber" binding:""`   // 證件號碼
-	IdCard     string `json:"idCard" binding:""`     // 證件
-	Operator   string `json:"operator" binding:""`   // 操作系統
+	FirstName   string `json:"firstName" binding:""`   // 姓
+	SecondName  string `json:"secondName" binding:""`  // 名
+	Age         int    `json:"age" binding:""`         // 年齡
+	Gender      string `json:"gender" binding:""`      // 性別
+	IdType      string `json:"idType" binding:""`      // 證件類型
+	Mobile      string `json:"mobile" binding:""`      //手机号码
+	IdNumber    string `json:"idNumber" binding:""`    // 證件號碼
+	IdCardFront string `json:"idCardFront" binding:""` // 證件
+	IdCardBack  string `json:"idCardBack" binding:""`
+	Face        string `json:"face" binding:""`
+	Operator    string `json:"operator" binding:""` // 操作系統
 
-	Work          string `json:"work" binding:""`          // 工作
-	Company       string `json:"company" binding:""`       // 公司
-	Salary        int    `json:"salary" binding:""`        // 薪資
-	MaritalStatus int    `json:"maritalStatus" binding:""` // 婚否
-	HasHouse      int    `json:"hasHouse" binding:""`      // 是否有房
+	Work             string `json:"work" binding:""` // 工作
+	TaxCertificate   string `json:"taxCertificate" binding:""`
+	Company          string `json:"company" binding:""`       // 公司
+	Salary           int    `json:"salary" binding:""`        // 薪資
+	MaritalStatus    int    `json:"maritalStatus" binding:""` // 婚否
+	HasHouse         int    `json:"hasHouse" binding:""`      // 是否有房
+	HouseCertificate string `json:"houseCertificate" binding:""`
 
-	HasCar int `json:"hasCar" binding:""` // 是否有車
+	HasCar         int    `json:"hasCar" binding:""` // 是否有車
+	CarCertificate string `json:"carCertificate" binding:""`
 
 	ApplicationAmount int    `json:"applicationAmount" binding:""` // 申請金額
 	AuditStatus       int    `json:"auditStatus" binding:""`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
@@ -80,42 +86,11 @@ type UpdateLoanBaseinfoByIDRequest struct {
 
 // LoanBaseinfoObjDetail detail
 type LoanBaseinfoObjDetail struct {
-	ID uint64 `json:"id"` // convert to uint64 id
-
-	FirstName     string `json:"firstName"`         // 姓
-	SecondName    string `json:"secondName"`        // 名
-	Age           int    `json:"age"`               // 年齡
-	Gender        string `json:"gender"`            // 性別
-	IdType        string `json:"idType"`            // 證件類型
-	IdNumber      string `json:"idNumber"`          // 證件號碼
-	IdCard        string `json:"idCard"`            // 證件
-	Operator      string `json:"operator"`          // 操作系統
-	Mobile        string `json:"mobile" binding:""` //手机号码
-	Work          string `json:"work"`              // 工作
-	Company       string `json:"company"`           // 公司
-	Salary        int    `json:"salary"`            // 薪資
-	MaritalStatus int    `json:"maritalStatus"`     // 婚否
-	HasHouse      int    `json:"hasHouse"`          // 是否有房
-
-	HasCar int `json:"hasCar"` // 是否有車
-
-	ApplicationAmount *decimal.Decimal `json:"applicationAmount"` // 申請金額
-	AuditStatus       int              `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	BankNo            string           `json:"bankNo"`            // 銀行卡號
-	ClientIP          string           `json:"clientIP"`          // 客户端IP地址(IPv4/IPv6)
-	CreatedAt         *time.Time       `json:"createdAt"`
-	UpdatedAt         *time.Time       `json:"updatedAt"`
-	ReferrerUserID    int64            `json:"referrerUserID"`   // 邀请人/分享人(loan_users.id)
-	RefCode           string           `json:"refCode"`          // 访问时携带的ref(冗余存储便于排查)
-	LoanDays          int              `json:"loanDays"`         // 借款天数(单位：天)
-	RiskListStatus    int              `json:"riskListStatus"`   // 名单状态：0正常 1白名单 2黑名单
-	RiskListReason    string           `json:"riskListReason"`   // 名单原因/来源说明
-	RiskListMarkedAt  *time.Time       `json:"riskListMarkedAt"` // 名单标记时间
+	model.LoanBaseinfo
 	// --- 新增：风险记录的操作人相关字段（核心调整）---
 	RiskOperateID   uint64 ` json:"riskOperateID"`   // 风险记录操作人ID（loan_risk_customer.created_by）
 	RiskOperateName string ` json:"riskOperateName"` // 风险记录操作人用户名（loan_users.username）
 
-	Files map[string][]string `json:"files"`
 }
 
 type LoanBaseinfoSimpleObjDetail struct {

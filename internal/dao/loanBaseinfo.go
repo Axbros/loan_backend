@@ -36,8 +36,6 @@ type LoanBaseinfoDao interface {
 	CreateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanBaseinfo) (uint64, error)
 	DeleteByTx(ctx context.Context, tx *gorm.DB, id uint64) error
 	UpdateByTx(ctx context.Context, tx *gorm.DB, table *model.LoanBaseinfo) error
-
-	GetFilesMapByBaseinfoID(ctx context.Context, baseinfoID uint64) (map[string][]string, error)
 }
 
 type loanBaseinfoDao struct {
@@ -63,30 +61,6 @@ func (d *loanBaseinfoDao) deleteCache(ctx context.Context, id uint64) error {
 		return d.cache.Del(ctx, id)
 	}
 	return nil
-}
-
-func (d *loanBaseinfoDao) GetFilesMapByBaseinfoID(ctx context.Context, baseinfoID uint64) (map[string][]string, error) {
-	type row struct {
-		Type   string `gorm:"column:type"`
-		OssURL string `gorm:"column:oss_url"`
-	}
-
-	var rows []row
-	err := d.db.WithContext(ctx).
-		Table("loan_baseinfo_files").
-		Select("type, oss_url").
-		Where("baseinfo_id = ? AND deleted_at IS NULL", baseinfoID).
-		Order("type ASC, id ASC").
-		Scan(&rows).Error
-	if err != nil {
-		return nil, err
-	}
-
-	res := make(map[string][]string)
-	for _, r := range rows {
-		res[r.Type] = append(res[r.Type], r.OssURL)
-	}
-	return res, nil
 }
 
 // Create a new loanBaseinfo, insert the record and the id value is written back to the table
@@ -141,9 +115,6 @@ func (d *loanBaseinfoDao) updateDataByID(ctx context.Context, db *gorm.DB, table
 	}
 	if table.IdNumber != "" {
 		update["id_number"] = table.IdNumber
-	}
-	if table.IdCard != "" {
-		update["id_card"] = table.IdCard
 	}
 	if table.Operator != "" {
 		update["operator"] = table.Operator

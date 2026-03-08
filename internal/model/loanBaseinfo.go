@@ -9,21 +9,26 @@ import (
 type LoanBaseinfo struct {
 	sgorm.Model `gorm:"embedded"` // embed id and time
 
-	FirstName         string     `gorm:"column:first_name;type:varchar(32)" json:"firstName"`   // 姓
-	SecondName        string     `gorm:"column:second_name;type:varchar(32)" json:"secondName"` // 名
-	Age               int        `gorm:"column:age;type:int(11)" json:"age"`                    // 年齡
-	Gender            string     `gorm:"column:gender;type:varchar(4)" json:"gender"`           // 性別
-	IdType            string     `gorm:"column:id_type;type:varchar(32)" json:"idType"`         // 證件類型
-	IdNumber          string     `gorm:"column:id_number;type:varchar(32)" json:"idNumber"`     // 證件號碼
-	IdCard            string     `gorm:"column:id_card;type:varchar(255)" json:"idCard"`        // 證件
-	Operator          string     `gorm:"column:operator;type:varchar(255)" json:"operator"`     // 操作系統
+	FirstName         string     `gorm:"column:first_name;type:varchar(32)" json:"firstName"`       // 姓
+	SecondName        string     `gorm:"column:second_name;type:varchar(32)" json:"secondName"`     // 名
+	Age               int        `gorm:"column:age;type:int(11)" json:"age"`                        // 年齡
+	Gender            string     `gorm:"column:gender;type:varchar(4)" json:"gender"`               // 性別
+	IdType            string     `gorm:"column:id_type;type:varchar(32)" json:"idType"`             // 證件類型
+	IdNumber          string     `gorm:"column:id_number;type:varchar(32)" json:"idNumber"`         // 證件號碼
+	IdCardFront       string     `gorm:"column:id_card_front;type:varchar(255)" json:"idCardFront"` // 證件正面
+	IdCardBack        string     `gorm:"column:id_card_back;type:varchar(255)" json:"IdCardBack"`   // 證件正面
+	Face              string     `gorm:"column:face;type:varchar(255)" json:"face"`                 //正脸照
+	Operator          string     `gorm:"column:operator;type:varchar(255)" json:"operator"`         // 操作系統
 	Mobile            string     `gorm:"column:mobile;type:varchar(32)" json:"mobile"`
-	Work              string     `gorm:"column:work;type:varchar(255)" json:"work"`                          // 工作
-	Company           string     `gorm:"column:company;type:varchar(255)" json:"company"`                    // 公司
-	Salary            int        `gorm:"column:salary;type:int(11)" json:"salary"`                           // 薪資
-	MaritalStatus     int        `gorm:"column:marital_status;type:tinyint(4)" json:"maritalStatus"`         // 婚否
-	HasHouse          int        `gorm:"column:has_house;type:tinyint(4)" json:"hasHouse"`                   // 是否有房
-	HasCar            int        `gorm:"column:has_car;type:tinyint(4)" json:"hasCar"`                       // 是否有車
+	Work              string     `gorm:"column:work;type:varchar(255)" json:"work"`                      // 工作
+	Company           string     `gorm:"column:company;type:varchar(255)" json:"company"`                // 公司
+	Salary            int        `gorm:"column:salary;type:int(11)" json:"salary"`                       // 薪資
+	TaxCertificate    string     `gorm:"column:tax_certificate;type:varchar(255)" json:"taxCertificate"` //税收正面
+	MaritalStatus     int        `gorm:"column:marital_status;type:tinyint(4)" json:"maritalStatus"`     // 婚否
+	HasHouse          int        `gorm:"column:has_house;type:tinyint(4)" json:"hasHouse"`               // 是否有房
+	HouseCertificate  string     `gorm:"column:house_certificate;type:varchar(255)" json:"houseCertificate"`
+	HasCar            int        `gorm:"column:has_car;type:tinyint(4)" json:"hasCar"` // 是否有車
+	CarCertificate    string     `gorm:"column:car_certificate;type:varchar(255)" json:"carCertificate"`
 	ApplicationAmount int64      `gorm:"column:application_amount;type:bigint(20)" json:"applicationAmount"` // 申請金額 单位：分
 	AuditStatus       int        `gorm:"column:audit_status;type:tinyint(4);default:0" json:"auditStatus"`   // 審核情況 0待審核 1審核通過 -1 審核拒絕
 	BankNo            string     `gorm:"column:bank_no;type:varchar(255)" json:"bankNo"`                     // 銀行卡號
@@ -38,7 +43,7 @@ type LoanBaseinfo struct {
 	RiskOperateID   uint64 `gorm:"column:-" json:"riskOperateID"`   // 风险记录操作人ID（loan_risk_customer.created_by）
 	RiskOperateName string `gorm:"column:-" json:"riskOperateName"` // 风险记录操作人用户名（loan_users.username）
 
-	AuditRecords []*LoanAudits `gorm:"foreignKey:BaseinfoID;references:ID"` // 外键关联
+	//AuditRecords []*LoanAudits `gorm:"foreignKey:BaseinfoID;references:ID"` // 外键关联
 }
 
 type LoanBaseinfoWithAuditRecord struct {

@@ -248,16 +248,16 @@ func (h *loanDisbursementsHandler) GetByID(c *gin.Context) {
 	}
 
 	// 3) files（按 type 聚合）
-	files, err := h.baseinfoDao.GetFilesMapByBaseinfoID(ctx, uint64(disb.BaseinfoID))
-	if err != nil {
-		logger.Error("GetFilesMapByBaseinfoID error", logger.Err(err), logger.Any("baseinfo_id", disb.BaseinfoID), middleware.GCtxRequestIDField(c))
-		response.Output(c, ecode.InternalServerError.ToHTTPCode())
-		return
-	}
-	if files == nil {
-		files = map[string][]string{}
-	}
-	baseDTO.Files = files
+	//files, err := h.baseinfoDao.GetFilesMapByBaseinfoID(ctx, uint64(disb.BaseinfoID))
+	//if err != nil {
+	//	logger.Error("GetFilesMapByBaseinfoID error", logger.Err(err), logger.Any("baseinfo_id", disb.BaseinfoID), middleware.GCtxRequestIDField(c))
+	//	response.Output(c, ecode.InternalServerError.ToHTTPCode())
+	//	return
+	//}
+	//if files == nil {
+	//	files = map[string][]string{}
+	//}
+	//baseDTO.Files = files
 
 	// 4) audits
 	auditRecords, err := h.auditDao.ListByBaseinfoID(ctx, disb.BaseinfoID)

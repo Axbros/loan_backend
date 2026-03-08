@@ -1,11 +1,11 @@
 package routers
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
-
 	"loan/internal/authz"
 	"loan/internal/handler"
+
+	"github.com/gin-gonic/gin"
+	"github.com/go-dev-frame/sponge/pkg/gin/middleware"
 )
 
 func init() {
@@ -20,19 +20,21 @@ func loanBaseinfoRouter(group *gin.RouterGroup, h handler.LoanBaseinfoHandler) {
 	// JWT authentication reference: https://go-sponge.com/component/transport/gin.html#jwt-authorization-middleware
 
 	// All the following routes use jwt authentication, you also can use middleware.Auth(middleware.WithExtraVerify(fn))
-	g.Use(middleware.Auth())
 
 	// If jwt authentication is not required for all routes, authentication middleware can be added
 	// separately for only certain routes. In this case, g.Use(middleware.Auth()) above should not be used.
 
-	g.POST("/", authz.RequirePerm("customer:add"), h.Create)
-	g.DELETE("/:id", authz.RequirePerm("customer:delete"), h.DeleteByID)
-	g.PUT("/:id", authz.RequirePerm("customer:update"), h.UpdateByID)
-	g.GET("/:id", authz.RequirePerm("customer:view"), h.GetByID)
-	g.POST("/list", authz.RequirePerm("customer:view"), h.List)
+	g.POST("/", h.Create)
+	g.DELETE("/:id", middleware.Auth(), authz.RequirePerm("customer:delete"), h.DeleteByID)
+	g.PUT("/:id", middleware.Auth(), authz.RequirePerm("customer:update"), h.UpdateByID)
+	g.GET("/:id", middleware.Auth(), authz.RequirePerm("customer:view"), h.GetByID)
+	g.POST("/list", middleware.Auth(), authz.RequirePerm("customer:view"), h.List)
 
-	g.POST("/pre-review", authz.RequirePerm("loan:pre_review"), h.PreReview)
-	g.POST("/finance-review", authz.RequirePerm("loan:finance_review"), h.FinanceReview)
+	g.POST("/pre-review", middleware.Auth(), authz.RequirePerm("loan:pre_review"), h.PreReview)
+	g.POST("/finance-review", middleware.Auth(), authz.RequirePerm("loan:finance_review"), h.FinanceReview)
 
-	g.POST("/withAuditRecord/list", authz.RequirePerm("customer:view"), h.WithAuditRecordList)
+	g.POST("/withAuditRecord/list", middleware.Auth(), authz.RequirePerm("customer:view"), h.WithAuditRecordList)
+
+	g.POST("/upload-certificate", h.UploadCertificate)
+	g.GET("/upload-certificate/:file_name", authz.RequirePerm("customer:view"), h.GetCertificateBase64)
 }
