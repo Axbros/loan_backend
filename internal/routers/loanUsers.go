@@ -35,7 +35,7 @@ func loanUsersRouter(group *gin.RouterGroup, h handler.LoanUsersHandler) {
 	g.DELETE("/:id", middleware.Auth(), authz.RequirePerm("user:delete"), h.DeleteByID) // [delete] /api/v1/loanUsers/:id
 	g.PUT("/:id", middleware.Auth(), authz.RequirePerm("user:update"), h.UpdateByID)    // [put] /api/v1/loanUsers/:id
 	g.GET("/:id", middleware.Auth(), authz.RequirePerm("user:view"), h.GetByID)         // [get] /api/v1/loanUsers/:id
-	g.POST("/list", middleware.Auth(), authz.RequirePerm("user:view"), h.List)          // [post] /api/v1/loanUsers/list
+	g.POST("/list", authz.RequirePerm("user:view"), h.List)                             // [post] /api/v1/loanUsers/list
 	g.GET("/collectUser/list", middleware.Auth(), authz.RequirePerm("user:view"), h.GetCollectUser)
 	g.POST("/delete/ids", middleware.Auth(), authz.RequirePerm("user:delete"), h.DeleteByIDs) // [post] /api/v1/loanUsers/delete/ids
 	g.POST("/condition", middleware.Auth(), authz.RequirePerm("user:view"), h.GetByCondition) // [post] /api/v1/loanUsers/condition
