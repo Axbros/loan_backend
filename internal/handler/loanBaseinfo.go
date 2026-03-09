@@ -634,7 +634,16 @@ func (h *loanBaseinfoHandler) UploadCertificate(c *gin.Context) {
 	filePath := filepath.Join(storageDir, filename)
 
 	// 5. Create local file
-	if !strings.HasPrefix(filepath.Clean(filePath), cleanStorageDir) {
+	cleanFilePath := filepath.Clean(filePath)
+
+	if !strings.HasPrefix(cleanFilePath, cleanStorageDir) {
+		logger.Errorf(
+			"[UploadCertificate] invalid file path: filePath=%q cleanFilePath=%q cleanStorageDir=%q",
+			filePath,
+			cleanFilePath,
+			cleanStorageDir,
+		)
+
 		response.Error(c, ecode.ErrInvalidFilePathBaseinfo)
 		return
 	}
