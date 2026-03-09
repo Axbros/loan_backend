@@ -154,12 +154,7 @@ func (d *loanBaseinfoDao) updateDataByID(ctx context.Context, db *gorm.DB, table
 	if table.ClientIP != "" {
 		update["client_ip"] = table.ClientIP
 	}
-	if table.ReferrerUserID != 0 {
-		update["referrer_user_id"] = table.ReferrerUserID
-	}
-	if table.RefCode != "" {
-		update["ref_code"] = table.RefCode
-	}
+
 	if table.LoanDays != 0 {
 		update["loan_days"] = table.LoanDays
 	}

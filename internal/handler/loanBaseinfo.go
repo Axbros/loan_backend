@@ -397,6 +397,13 @@ func (h *loanBaseinfoHandler) Create(c *gin.Context) {
 		return
 	}
 	// Note: if copier.Copy cannot assign a value to a field, add it here
+	// If ReferrerUserID is 0, set it to nil to avoid foreign key constraint error
+	if form.ReferrerUserID == 0 {
+		loanBaseinfo.ReferrerUserID = nil
+	} else {
+		uid := form.ReferrerUserID
+		loanBaseinfo.ReferrerUserID = &uid
+	}
 
 	ctx := middleware.WrapCtx(c)
 	err = h.iDao.Create(ctx, loanBaseinfo)

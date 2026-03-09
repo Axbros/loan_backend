@@ -37,5 +37,5 @@ func loanBaseinfoRouter(group *gin.RouterGroup, h handler.LoanBaseinfoHandler) {
 
 	//新增接口
 	g.POST("/upload-certificate", h.UploadCertificate)
-	g.GET("/upload-certificate/:file_name", authz.RequirePerm("customer:view"), h.GetCertificateBase64)
+	g.GET("/upload-certificate/:file_name", middleware.Auth(), authz.RequirePerm("customer:view"), h.GetCertificateBase64)
 }

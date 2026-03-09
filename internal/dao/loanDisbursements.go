@@ -223,9 +223,7 @@ func (d *loanDisbursementsDao) updateDataByID(ctx context.Context, db *gorm.DB, 
 	if table.Status != 0 {
 		update["status"] = table.Status
 	}
-	if table.SourceReferrerUserID != 0 {
-		update["source_referrer_user_id"] = table.SourceReferrerUserID
-	}
+
 	if table.AuditorUserID != 0 {
 		update["auditor_user_id"] = table.AuditorUserID
 	}

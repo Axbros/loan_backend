@@ -1,8 +1,9 @@
 package model
 
 import (
-	"github.com/go-dev-frame/sponge/pkg/sgorm"
 	"time"
+
+	"github.com/go-dev-frame/sponge/pkg/sgorm"
 )
 
 // LoanDisbursements 放款单/待放款任务表(审核通过后生成，状态待放款->已放款)
@@ -13,7 +14,7 @@ type LoanDisbursements struct {
 	DisburseAmount       int64      `gorm:"column:disburse_amount;type:bigint(20);not null" json:"disburseAmount"`      // 放款金额(单位按你的系统：元/分，建议统一)
 	NetAmount            int64      `gorm:"column:net_amount;type:bigint(20);not null" json:"netAmount"`                // 到账金额(扣除费用后实际到账)
 	Status               int        `gorm:"column:status;type:tinyint(4);default:0;not null" json:"status"`             // 放款状态：0待放款 1已放款
-	SourceReferrerUserID int64      `gorm:"column:source_referrer_user_id;type:bigint(20)" json:"sourceReferrerUserID"` // 用户来源(分享人 loan_users.id，冗余快照，便于查询)
+	SourceReferrerUserID *int64     `gorm:"column:source_referrer_user_id;type:bigint(20)" json:"sourceReferrerUserID"` // 用户来源(分享人 loan_users.id，冗余快照，便于查询)
 	AuditorUserID        uint64     `gorm:"column:auditor_user_id;type:bigint(20)" json:"auditorUserID"`                // 审核人员(loan_users.id)
 	AuditedAt            *time.Time `gorm:"column:audited_at;type:datetime" json:"auditedAt"`                           // 审核通过时间
 	PayoutChannelID      uint64     `gorm:"column:payout_channel_id;type:bigint(20)" json:"payoutChannelID"`            // 放款渠道(代付) loan_payment_channels.id
