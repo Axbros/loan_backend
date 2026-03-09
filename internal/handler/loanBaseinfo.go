@@ -597,6 +597,7 @@ func convertSimpleLoanBaseinfoWithAuditRecord(loanBaseinfo *model.LoanBaseinfoWi
 
 // UploadCertificate upload baseinfo certificate
 func (h *loanBaseinfoHandler) UploadCertificate(c *gin.Context) {
+	// 1. Get file from form (field name: certificate)
 	file, fileHeader, err := c.Request.FormFile("certificate")
 	if err != nil {
 		response.Error(c, ecode.InvalidParams)
@@ -606,6 +607,7 @@ func (h *loanBaseinfoHandler) UploadCertificate(c *gin.Context) {
 		_ = file.Close()
 	}()
 
+	// 2. Validate file type (png/jpg/jpeg)
 	allowedExts := map[string]bool{
 		".png":  true,
 		".jpg":  true,
@@ -617,49 +619,44 @@ func (h *loanBaseinfoHandler) UploadCertificate(c *gin.Context) {
 		return
 	}
 
+	// 3. Ensure storage directory exists
 	storageDir := config.Get().Storage.BaseinfoCertificate
-	cleanStorageDir, err := filepath.Abs(filepath.Clean(storageDir))
-	if err != nil {
-		response.Error(c, ecode.ErrInvalidFilePathBaseinfo)
-		return
-	}
+	cleanStorageDir := filepath.Clean(storageDir)
 
 	if err := os.MkdirAll(cleanStorageDir, 0755); err != nil {
 		response.Error(c, ecode.ErrCreateFileFolderBaseinfo)
 		return
 	}
 
+	// 4. Generate unique filename
 	uniqueID := uuid.New().String()
 	filename := fmt.Sprintf("%s%s", uniqueID, fileExt)
-	filePath := filepath.Join(cleanStorageDir, filename)
+	filePath := filepath.Join(storageDir, filename)
 
-	cleanFilePath, err := filepath.Abs(filepath.Clean(filePath))
-	if err != nil {
+	// 5. Create local file
+	if !strings.HasPrefix(filepath.Clean(filePath), cleanStorageDir) {
 		response.Error(c, ecode.ErrInvalidFilePathBaseinfo)
 		return
 	}
-
-	rel, err := filepath.Rel(cleanStorageDir, cleanFilePath)
-	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-		response.Error(c, ecode.ErrInvalidFilePathBaseinfo)
-		return
-	}
-
-	dstFile, err := os.OpenFile(cleanFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	dstFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		response.Error(c, ecode.ErrSaveFileBaseinfo)
 		return
 	}
 	defer func() {
-		_ = dstFile.Close()
+		if dstFile != nil {
+			_ = dstFile.Close()
+		}
 	}()
 
+	// 6. Copy file content
 	_, err = io.Copy(dstFile, file)
 	if err != nil {
 		response.Error(c, ecode.ErrSaveFileBaseinfo)
 		return
 	}
 
+	// 7. Return success result
 	response.Success(c, gin.H{
 		"file_name": filename,
 		"size":      fileHeader.Size,
@@ -672,6 +669,11 @@ func (h *loanBaseinfoHandler) GetCertificateBase64(c *gin.Context) {
 	fileName := c.Param("file_name")
 	if fileName == "" {
 		response.Error(c, ecode.InvalidParams)
+		return
+	}
+
+	if fileName != filepath.Base(fileName) {
+		response.Error(c, ecode.ErrInvalidFilePathBaseinfo)
 		return
 	}
 
