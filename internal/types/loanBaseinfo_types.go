@@ -104,8 +104,8 @@ type LoanBaseinfoSimpleObjDetail struct {
 	IdNumber          string           `json:"idNumber"`          // 證件號碼
 	ApplicationAmount *decimal.Decimal `json:"applicationAmount"` // 申請金額
 	AuditStatus       int              `json:"auditStatus"`       // 審核情況 0待審核 1審核通過 -1 審核拒絕
-	ReferrerUserID    int64            `json:"referrerUserID"`    // 邀请人/分享人(loan_users.id)
-	LoanDays          int              `json:"loanDays"`          // 借款天数(单位：天)
+	//ReferrerUserID    int64            `json:"referrerUserID"`    // 邀请人/分享人(loan_users.id)
+	LoanDays int `json:"loanDays"` // 借款天数(单位：天)
 }
 
 type LoanBaseinfoWithAuditRecords struct {
