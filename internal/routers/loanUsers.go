@@ -27,15 +27,16 @@ func loanUsersRouter(group *gin.RouterGroup, h handler.LoanUsersHandler) {
 
 	g.POST("/register", h.Register)
 	g.POST("/login", h.Login)
-	g.GET("/me", middleware.Auth(), h.Me)
 	g.GET("/refer", h.Refer)
+
+	g.GET("/me", middleware.Auth(), h.Me)
 	g.GET("/mfa/setup", middleware.Auth(), h.SetUpMFA)
 	g.POST("/mfa/bind", middleware.Auth(), h.BindMFA)
 	g.POST("/", middleware.Auth(), authz.RequirePerm("user:add"), h.Create)             // [post] /api/v1/loanUsers
 	g.DELETE("/:id", middleware.Auth(), authz.RequirePerm("user:delete"), h.DeleteByID) // [delete] /api/v1/loanUsers/:id
 	g.PUT("/:id", middleware.Auth(), authz.RequirePerm("user:update"), h.UpdateByID)    // [put] /api/v1/loanUsers/:id
 	g.GET("/:id", middleware.Auth(), authz.RequirePerm("user:view"), h.GetByID)         // [get] /api/v1/loanUsers/:id
-	g.POST("/list", authz.RequirePerm("user:view"), h.List)                             // [post] /api/v1/loanUsers/list
+	g.POST("/list", middleware.Auth(), authz.RequirePerm("user:view"), h.List)          // [post] /api/v1/loanUsers/list
 	g.GET("/collectUser/list", middleware.Auth(), authz.RequirePerm("user:view"), h.GetCollectUser)
 	g.POST("/delete/ids", middleware.Auth(), authz.RequirePerm("user:delete"), h.DeleteByIDs) // [post] /api/v1/loanUsers/delete/ids
 	g.POST("/condition", middleware.Auth(), authz.RequirePerm("user:view"), h.GetByCondition) // [post] /api/v1/loanUsers/condition
