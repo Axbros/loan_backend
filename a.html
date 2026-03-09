@@ -1,0 +1,2220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1,maximum-scale=1, user-scalable=no">
+    <title>详情页</title>
+    <link rel="stylesheet" type="text/css" href="https://port.mr.mct.gov.cn/css/mobile/reset.css" media="all" />
+    <link rel="stylesheet" type="text/css" href="https://port.mr.mct.gov.cn/css/mobile/main.css" media="all" />
+    <link href="https://port.mr.mct.gov.cn/css/layer.css" rel="stylesheet">
+    <script type="text/javascript" src="https://port.mr.mct.gov.cn/js/mobile/750rem.js"></script>
+
+    
+</head>
+<body>
+<div class="main-wrapper">
+    <ul class="menu-tab">
+        <li class="active" data-content="baseInfo">基本信息</li>
+        <li data-content="itineraryList">行程单</li>
+        <li data-content="touristList">游客名单</li>
+    </ul>
+    <div class="clear-1"></div>
+    <div class="tab-content">
+        <div class="detail-wrapper content-wrapper" id="baseInfo"></div>
+        <div class="itinerary-list content-wrapper" id="itineraryList">
+            <div class="flowChart">
+                <div class="flowChart-left"><div class="dashed"></div></div>
+                <div class="flowChart-right"></div>
+            </div>
+        </div>
+        <div class="tourist-list content-wrapper" id="touristList"></div>
+    </div>
+</div>
+
+<!-- 模板原样保留 -->
+<script type="text/html" id="baseInfoTpl">
+    <%
+    if(businessType == 1 || businessType == 4 || businessType == 5 || businessType == 8 || businessType == 9 || businessType == 10 || businessType == 11) {
+    %>
+    <dl>
+        <dt>统一编号</dt>
+        <dd><%=uniqueGroupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>组团社</dt>
+        <dd><%=companyName%></dd>
+    </dl>
+    <dl>
+        <dt>团队编号</dt>
+        <dd><%=groupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>出境类型</dt>
+        <dd><%=businessTypeDetail.name%></dd>
+    </dl>
+    <dl>
+        <dt>线路名称</dt>
+        <dd><%=lineName%></dd>
+    </dl>
+    <dl>
+        <dt>出发城市</dt>
+        <dd><%=departureCity%></dd>
+    </dl>
+    <dl>
+        <dt>大交通</dt>
+        <dd><%=transportationName%></dd>
+    </dl>
+    <dl>
+        <dt>出发班次/车次</dt>
+        <dd><%=departureNumber%></dd>
+    </dl>
+    <dl>
+        <dt>返回班次/车次</dt>
+        <dd><%=returnNumber%></dd>
+    </dl>
+    <dl>
+        <dt>出境口岸</dt>
+        <dd><%=exitPort%></dd>
+    </dl>
+    <dl>
+        <dt>入境口岸</dt>
+        <dd><%=entryPort%></dd>
+    </dl>
+    <dl>
+        <dt>出境日期</dt>
+        <dd><%=formatDateTime(exitDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>出境时间</dt>
+        <dd><%=exitTime%></dd>
+    </dl>
+    <dl>
+        <dt>入境日期</dt>
+        <dd><%=formatDateTime(entryDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>入境时间</dt>
+        <dd><%=entryTime%></dd>
+    </dl>
+    <dl>
+        <dt>游玩天数</dt>
+        <dd><%=days%>天</dd>
+    </dl>
+    <dl>
+        <dt>地接社</dt>
+        <dd><%=localTravelAgency%></dd>
+    </dl>
+    <%if(guideCard != ''){%>
+    <div class="clear-1"></div>
+    <dl>
+        <dt>导游姓名</dt>
+        <dd><%=guideName%></dd>
+    </dl>
+    <dl>
+        <dt>导游证号</dt>
+        <dd><%=guideCard%>（有效期至<%=formatDateTime(guideValidTime,'yyyy/MM/dd')%>）</dd>
+    </dl>
+    <dl>
+        <dt>导游电话</dt>
+        <dd><%=guidePhone%></dd>
+    </dl>
+    <dl>
+        <dt>导游单位</dt>
+        <dd><%=guideAgency%></dd>
+    </dl>
+    <%}%>
+
+    <% } else if(businessType == 2) { %>
+    <dl>
+        <dt>统一编号</dt>
+        <dd><%=uniqueGroupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>组团社</dt>
+        <dd><%=companyName%></dd>
+    </dl>
+    <dl>
+        <dt>团队编号</dt>
+        <dd><%=groupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>线路名称</dt>
+        <dd><%=lineName%></dd>
+    </dl>
+    <dl>
+        <dt>出发城市</dt>
+        <dd><%=departureCity%></dd>
+    </dl>
+    <dl>
+        <dt>大交通</dt>
+        <dd><%=transportationName%></dd>
+    </dl>
+    <dl>
+        <dt>出发班次/车次</dt>
+        <dd><%=departureNumber%></dd>
+    </dl>
+    <dl>
+        <dt>返回班次/车次</dt>
+        <dd><%=returnNumber%></dd>
+    </dl>
+    <dl>
+        <dt>出发日期</dt>
+        <dd><%=formatDateTime(exitDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>出发时间</dt>
+        <dd><%=exitTime%></dd>
+    </dl>
+    <dl>
+        <dt>返回日期</dt>
+        <dd><%=formatDateTime(entryDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>返回时间</dt>
+        <dd><%=entryTime%></dd>
+    </dl>
+    <dl>
+        <dt>游玩天数</dt>
+        <dd><%=days%>天</dd>
+    </dl>
+    <dl>
+        <dt>拼团及备注</dt>
+        <dd><%=remark%></dd>
+    </dl>
+    <%for(var i = 0;i < guides.length;i++){%>
+    <% var guide = guides[i] %>
+    <div class="clear-1"></div>
+    <dl>
+        <dt>导游姓名</dt>
+        <dd><%=guide.guideName%></dd>
+    </dl>
+    <dl>
+        <dt>导游证号</dt>
+        <dd><%=guide.guideCard%>（有效期至<%=formatDateTime(guide.guideValidTime,'yyyy/MM/dd')%>）</dd>
+    </dl>
+    <dl>
+        <dt>导游电话</dt>
+        <dd><%=guide.guidePhone%></dd>
+    </dl>
+    <dl>
+        <dt>导游单位</dt>
+        <dd><%=guide.guideAgency%></dd>
+    </dl>
+    <%}%>
+
+    <% } else if(businessType == 6) { %>
+    <dl>
+        <dt>统一编号</dt>
+        <dd><%=uniqueGroupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>接待社</dt>
+        <dd><%=companyName%></dd>
+    </dl>
+    <dl>
+        <dt>团队编号</dt>
+        <dd><%=groupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>接待社团号</dt>
+        <dd><%=receiveGroupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>线路名称</dt>
+        <dd><%=lineName%></dd>
+    </dl>
+    <dl>
+        <dt>接团日期</dt>
+        <dd><%=formatDateTime(exitDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>接团时间</dt>
+        <dd><%=exitTime%></dd>
+    </dl>
+    <dl>
+        <dt>送团日期</dt>
+        <dd><%=formatDateTime(entryDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>送团时间</dt>
+        <dd><%=entryTime%></dd>
+    </dl>
+    <dl>
+        <dt>客源国家</dt>
+        <dd><%=departureCounty%></dd>
+    </dl>
+    <dl>
+        <dt>团队类型</dt>
+        <dd><%=groupTypeName%></dd>
+    </dl>
+    <dl>
+        <dt>车队</dt>
+        <dd><%=fleet%></dd>
+    </dl>
+    <dl>
+        <dt>车牌号</dt>
+        <dd><%=plateNumber%></dd>
+    </dl>
+    <dl>
+        <dt>司机姓名</dt>
+        <dd><%=driverName%></dd>
+    </dl>
+    <dl>
+        <dt>司机电话</dt>
+        <dd><%=driverPhone%></dd>
+    </dl>
+    <dl>
+        <dt>司机身份证</dt>
+        <dd><%=driverCardNumber%></dd>
+    </dl>
+    <dl>
+        <dt>组团社名称</dt>
+        <dd><%=receiveCompanyName%></dd>
+    </dl>
+    <dl>
+        <dt>组团社联系人</dt>
+        <dd><%=receiveCompanyContact%></dd>
+    </dl>
+    <dl>
+        <dt>组团社电话</dt>
+        <dd><%=receiveCompanyPhone%></dd>
+    </dl>
+    <dl>
+        <dt>游玩天数</dt>
+        <dd><%=days%>天</dd>
+    </dl>
+    <dl>
+        <dt>拼团及备注</dt>
+        <dd><%=remark%></dd>
+    </dl>
+    <%for(var i = 0;i < guides.length;i++){%>
+    <% var guide = guides[i] %>
+    <div class="clear-1"></div>
+    <dl>
+        <dt>导游姓名</dt>
+        <dd><%=guide.guideName%></dd>
+    </dl>
+    <dl>
+        <dt>导游证号</dt>
+        <dd><%=guide.guideCard%>（有效期至<%=formatDateTime(guide.guideValidTime,'yyyy/MM/dd')%>）</dd>
+    </dl>
+    <dl>
+        <dt>导游电话</dt>
+        <dd><%=guide.guidePhone%></dd>
+    </dl>
+    <dl>
+        <dt>导游单位</dt>
+        <dd><%=guide.guideAgency%></dd>
+    </dl>
+    <%}%>
+
+    <% } else if(businessType == 7) { %>
+    <dl>
+        <dt>统一编号</dt>
+        <dd><%=uniqueGroupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>接待社</dt>
+        <dd><%=companyName%></dd>
+    </dl>
+    <dl>
+        <dt>团队编号</dt>
+        <dd><%=groupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>接待社团号</dt>
+        <dd><%=receiveGroupNumber%></dd>
+    </dl>
+    <dl>
+        <dt>线路名称</dt>
+        <dd><%=lineName%></dd>
+    </dl>
+    <dl>
+        <dt>接团日期</dt>
+        <dd><%=formatDateTime(exitDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>接团时间</dt>
+        <dd><%=exitTime%></dd>
+    </dl>
+    <dl>
+        <dt>送团日期</dt>
+        <dd><%=formatDateTime(entryDate, 'yyyy/MM/dd')%></dd>
+    </dl>
+    <dl>
+        <dt>送团时间</dt>
+        <dd><%=entryTime%></dd>
+    </dl>
+    <dl>
+        <dt>客源城市</dt>
+        <dd><%=departureCity%></dd>
+    </dl>
+    <dl>
+        <dt>团队类型</dt>
+        <dd><%=groupTypeName%></dd>
+    </dl>
+    <dl>
+        <dt>车队</dt>
+        <dd><%=fleet%></dd>
+    </dl>
+    <dl>
+        <dt>车牌号</dt>
+        <dd><%=plateNumber%></dd>
+    </dl>
+    <dl>
+        <dt>司机姓名</dt>
+        <dd><%=driverName%></dd>
+    </dl>
+    <dl>
+        <dt>司机电话</dt>
+        <dd><%=driverPhone%></dd>
+    </dl>
+    <dl>
+        <dt>司机身份证</dt>
+        <dd><%=driverCardNumber%></dd>
+    </dl>
+    <dl>
+        <dt>游玩天数</dt>
+        <dd><%=days%>天</dd>
+    </dl>
+    <dl>
+        <dt>拼团及备注</dt>
+        <dd><%=remark%></dd>
+    </dl>
+    <%for(var i = 0;i < guides.length;i++){%>
+    <% var guide = guides[i] %>
+    <div class="clear-1"></div>
+    <dl>
+        <dt>导游姓名</dt>
+        <dd><%=guide.guideName%></dd>
+    </dl>
+    <dl>
+        <dt>导游证号</dt>
+        <dd><%=guide.guideCard%>（有效期至<%=formatDateTime(guide.guideValidTime,'yyyy/MM/dd')%>）</dd>
+    </dl>
+    <dl>
+        <dt>导游电话</dt>
+        <dd><%=guide.guidePhone%></dd>
+    </dl>
+    <dl>
+        <dt>导游单位</dt>
+        <dd><%=guide.guideAgency%></dd>
+    </dl>
+    <%}%>
+    <% } %>
+</script>
+
+<script type="text/html" id="itineraryInfoTpl">
+    <%
+    var transitName = '出境';
+    if(businessType == 2 || businessType == 6 || businessType == 7) {
+        transitName = '出省';
+    }
+    %>
+    <%
+    for(var i=0; i<itineraryList.length; i++) {
+        for(var j=0; j<itineraryList[i].sites.length; j++) {
+    %>
+    <div class="oneNode">
+        <div class="check <%=j==0 ? 'check-success' : ''%>"></div>
+        <div class="NodeDetail">
+            <div class="NodeDetail-title">
+                <span class="date"><%=dateAdd(exitDate,i)%></span>
+                <span class="area"><%=itineraryList[i].sites[j].arrival_country_name%>/<%=itineraryList[i].sites[j].arrival_city_name%></span>
+            </div>
+            <div class="NodeDetail-content">
+                <%=itineraryList[i].sites[j].detail%>
+            </div>
+            <div class="NodeDetail-footer">
+                <span>第<%=j+1%>站 <%=itineraryList[i].sites[j].is_transit ? '（'+transitName+'）' : ''%></span>
+            </div>
+        </div>
+    </div>
+    <%
+        }
+    }
+    %>
+</script>
+
+<script type="text/html" id="touristListTpl">
+    <h5>共<em><%=tourists.length%></em>人，其中 男<em><%=maleCount%></em>人，女<em><%=femaleCount%></em>人</h5>
+    <ul>
+        <%
+        for(var i=0; i<tourists.length; i++) {
+        %>
+        <li>
+            <div class="name"><%=tourists[i].fullname%></div>
+            <div class="gender"><%=getGenderName(tourists[i].gender)%></div>
+            <div class="card"><%=tourists[i].cardNumber%></div>
+        </li>
+        <%
+        }
+        %>
+    </ul>
+</script>
+
+<!-- 引入 jQuery + art-template 简化版，保证能渲染 -->
+<script src="https://port.mr.mct.gov.cn/js/jquery.min.js"></script>
+<script src="https://port.mr.mct.gov.cn/js/template-native.js"></script>
+<script src="https://port.mr.mct.gov.cn/js/require.js"></script>
+<script src="https://port.mr.mct.gov.cn/js/layer.js"></script>
+
+
+<script type="text/javascript">
+template.config("escape", false);
+
+// 你给的 mock 数据
+const MOCK_DATA = {
+    "errorCode": "0",
+    "errorMessage": "",
+    "data": {
+        "id": "n1LjGqB3Qw",
+        "groupNumber": "0306-01",
+        "companyId": "76532",
+        "companyName": "海琴岛国际旅行社有限公司",
+        "govId": "370200",
+        "govName": "青岛市文化和旅游局",
+        "lineName": "崂山一日",
+        "businessType": 2,
+        "exitType": 1,
+        "groupType": 1,
+        "departureNumber": "01",
+        "returnNumber": "01",
+        "exitPort": "",
+        "entryPort": "",
+        "exitPortCode": "0",
+        "entryPortCode": "0",
+        "exitDate": "2026-03-06",
+        "entryDate": "2026-03-06",
+        "exitTime": "08:00",
+        "entryTime": "18:00",
+        "departureCity": "青岛市",
+        "departureCityCode": "370200",
+        "arrivalCity": "青岛市",
+        "arrivalCityCode": "370200",
+        "transportation": "4",
+        "days": "1",
+        "localTravelAgency": "海琴岛国际旅行社有限公司",
+        "localTravelAgencyCode": "0",
+        "description": "崂山一日游",
+        "guideName": "",
+        "guideCard": "",
+        "guidePhone": "",
+        "guideValidTime": "null",
+        "guideAgency": "",
+        "twLeaderNo": "",
+        "state": "2",
+        "recordDate": "null",
+        "transactionId": "25682631",
+        "arrivalCounty": "",
+        "arrivalProv": "山东省",
+        "channel": "0",
+        "receiveGroupNumber": "",
+        "receiveCompanyId": "",
+        "receiveCompanyName": "",
+        "fleetId": "",
+        "fleet": "",
+        "plateNumber": "",
+        "fleetSeatNumber": "",
+        "fleetEmploymentNo": "",
+        "fleetTransportNo": "",
+        "fleetTransportScope": "",
+        "driverName": "",
+        "driverPhone": "",
+        "driverCardNumber": "",
+        "hotelName": "",
+        "hotelContact": "",
+        "hotelPhone": "",
+        "totalRoomCharge": "",
+        "uniqueGroupNumber": "GN471VWQMF41",
+        "departureCounty": "",
+        "applicantName": "18661600400",
+        "applicantPhone": "18661600400",
+        "areaCode": "370203",
+        "companyType": "1",
+        "russiaExitPort": "",
+        "russiaEntryPort": "",
+        "russiaExitPortCode": "",
+        "russiaEntryPortCode": "",
+        "russiaExitDate": "0000-00-00",
+        "russiaEntryDate": "0000-00-00",
+        "orderCode": "",
+        "policyNo": "",
+        "receiveCompanyContact": "",
+        "receiveCompanyPhone": "",
+        "remark": "",
+        "flag": "0",
+        "orderState": "0",
+        "touristCount": "37",
+        "guideCount": "0",
+        "totalCount": "37",
+        "cateringInfo": "",
+        "accompanyName": "",
+        "accompanyPhone": "",
+        "specialFlag": "0",
+        "created_at": "Fri Mar 06 2026 07:35:06 GMT+0800 (China Standard Time)",
+        "updated_at": "Fri Mar 06 2026 07:36:15 GMT+0800 (China Standard Time)",
+        "version": "0",
+        "year": "2026",
+        "tourists": [
+            {
+                "score": 594159134,
+                "id": 594014001,
+                "fullname": "代艳忍",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1980-04-10",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "34**************23",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159135,
+                "id": 594014002,
+                "fullname": "孙海涛",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1982-04-11",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "21**************11",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159136,
+                "id": 594014003,
+                "fullname": "刘畅",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1993-12-31",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "21**************1X",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159137,
+                "id": 594014004,
+                "fullname": "赵利",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1983-08-10",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "15**************75",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159138,
+                "id": 594014005,
+                "fullname": "刘少阳",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1988-01-30",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "21**************13",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159139,
+                "id": 594014006,
+                "fullname": "桑圣元",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1997-05-23",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************34",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159140,
+                "id": 594014007,
+                "fullname": "姜功伟",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1975-07-12",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "21**************17",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159141,
+                "id": 594014008,
+                "fullname": "张艳华",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1978-11-28",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "41**************46",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159142,
+                "id": 594014009,
+                "fullname": "王永胜",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1987-09-10",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************12",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159143,
+                "id": 594014010,
+                "fullname": "张栩晋琦",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "2010-02-01",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "41**************9X",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159144,
+                "id": 594014011,
+                "fullname": "阮叶林",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1988-09-24",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "34**************16",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159145,
+                "id": 594014012,
+                "fullname": "孙成华",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1980-10-06",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "15**************12",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159146,
+                "id": 594014013,
+                "fullname": "马传磊",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1982-01-28",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************78",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159147,
+                "id": 594014014,
+                "fullname": "张国兴",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1986-01-01",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "42**************96",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159148,
+                "id": 594014015,
+                "fullname": "曹丁丁",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1996-10-29",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "34**************17",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159149,
+                "id": 594014016,
+                "fullname": "韩颖",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1997-03-16",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "34**************27",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159150,
+                "id": 594014017,
+                "fullname": "杨笑",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "2006-04-07",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "51**************27",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159151,
+                "id": 594014018,
+                "fullname": "晏骢窈",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "2006-06-11",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "51**************81",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159157,
+                "id": 594014024,
+                "fullname": "张西华",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1969-01-15",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************10",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159158,
+                "id": 594014025,
+                "fullname": "高树英",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1968-10-05",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************44",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159159,
+                "id": 594014026,
+                "fullname": "孟祥忠",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1958-04-20",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************12",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159160,
+                "id": 594014027,
+                "fullname": "刘忠良",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1956-02-06",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************13",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159161,
+                "id": 594014028,
+                "fullname": "殷召水",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1963-05-14",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************58",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159162,
+                "id": 594014029,
+                "fullname": "宋艳",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1974-03-04",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************29",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159163,
+                "id": 594014030,
+                "fullname": "宋怀富",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1969-01-01",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************34",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159164,
+                "id": 594014031,
+                "fullname": "张景泉",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1962-03-03",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************18",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159165,
+                "id": 594014032,
+                "fullname": "韩付业",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1956-08-28",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************15",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159166,
+                "id": 594014033,
+                "fullname": "张成合",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1970-10-09",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************5X",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159167,
+                "id": 594014034,
+                "fullname": "唐清",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1965-03-21",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************11",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159168,
+                "id": 594014035,
+                "fullname": "陈爱华",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1962-10-09",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************25",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159169,
+                "id": 594014036,
+                "fullname": "李福利",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1960-08-20",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************16",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159170,
+                "id": 594014037,
+                "fullname": "刘桂平",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1962-07-18",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************47",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159171,
+                "id": 594014038,
+                "fullname": "陈素侠",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1966-01-08",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************20",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159172,
+                "id": 594014039,
+                "fullname": "万国庆",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1960-08-11",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************19",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159173,
+                "id": 594014040,
+                "fullname": "苗翠芹",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1961-09-13",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************29",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159174,
+                "id": 594014041,
+                "fullname": "宋明师",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 0,
+                "phone": "",
+                "birthday": "1972-12-11",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************11",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            },
+            {
+                "score": 594159175,
+                "id": 594014042,
+                "fullname": "颜井芝",
+                "lastnamePinyin": "",
+                "firstnamePinyin": "",
+                "gender": 1,
+                "phone": "",
+                "birthday": "1956-07-10",
+                "householdRegistrationProvince": "",
+                "provincePinyin": "",
+                "provincePy": "",
+                "householdRegistrationCity": "",
+                "householdRegistrationDistrict": "",
+                "cardType": 1,
+                "cardNumber": "37**************21",
+                "cardValidTo": "",
+                "cardIssueDate": "0000-00-00",
+                "cardIssueProvince": null,
+                "cardIssueCity": null,
+                "cardIssueDistrict": null,
+                "cardIssueDepartment": "",
+                "type": 1,
+                "state": 1,
+                "passportNo": "",
+                "passportValidTo": null,
+                "passportAuthority": null,
+                "passportDate": null,
+                "twNo": null,
+                "twValidTo": null,
+                "twAuthority": null,
+                "twDate": null,
+                "hkMcNo": null,
+                "hkMcValidTo": null,
+                "hkMcAuthority": null,
+                "hkMcDate": null,
+                "borderNo": null,
+                "borderValidTo": null,
+                "borderAuthority": null,
+                "borderDate": null,
+                "companyName": ""
+            }
+        ],
+        "tourItineraries": [
+            {
+                "id": 99780846,
+                "groupId": 26715717,
+                "dayNumber": 1,
+                "sitesString": "[{\"site_number\":1,\"arrival_city_code\":370200,\"arrival_city_name\":\"青岛市\",\"arrival_prov_name\":\"山东省\",\"arrival_country_name\":\"\",\"detail\":\"崂山一日游\",\"is_transit\":false}]",
+                "siteVersion": 2,
+                "version": 0
+            }
+        ],
+        "guides": [],
+        "businessTypeDetail": {
+            "id": 2,
+            "name": "国内游组团"
+        },
+        "businessTypeName": "国内游组团",
+        "groupTypeDetail": {
+            "id": 1,
+            "name": "自组自接"
+        },
+        "groupTypeName": "自组自接",
+        "transportationDetail": {
+            "id": 4,
+            "name": "汽车"
+        },
+        "transportationName": "汽车"
+    }
+}
+
+// 日期格式化
+function formatDateTime(date, fmt) {
+    if (!date || date === 'null' || date === '0000-00-00') return '';
+    date = new Date(date);
+    var o = {
+        "M+": date.getMonth() + 1,
+        "d+": date.getDate(),
+        "h+": date.getHours(),
+        "m+": date.getMinutes(),
+        "s+": date.getSeconds()
+    };
+    if (/(y+)/.test(fmt)) {
+        fmt = fmt.replace(RegExp.$1, (date.getFullYear() + "").substr(4 - RegExp.$1.length));
+    }
+    for (var k in o) {
+        if (new RegExp("(" + k + ")").test(fmt)) {
+            fmt = fmt.replace(RegExp.$1,
+                RegExp.$1.length === 1 ? o[k] : ("00" + o[k]).substr(("" + o[k]).length));
+        }
+    }
+    return fmt === 'NaN/aN/aN' ? '' : fmt;
+}
+
+template.helper('formatDateTime', function (date, fmt) {
+    return formatDateTime(date, fmt);
+});
+
+template.helper('dateAdd', function (dd, dadd) {
+    if (!dd || dd === 'null') return '';
+    var a = new Date(dd);
+    a = a.valueOf() + dadd * 86400000;
+    a = new Date(a);
+    var y = a.getFullYear();
+    var m = (a.getMonth() + 1 < 10 ? '0' : '') + (a.getMonth() + 1);
+    var d = (a.getDate() < 10 ? '0' : '') + a.getDate();
+    return y + '/' + m + '/' + d;
+});
+
+template.helper('getGenderName', function (gender) {
+    if (gender == 0) return '<em class="blue">男</em>';
+    if (gender == 1) return '<em class="red">女</em>';
+    return '';
+});
+
+// 切换 tab
+$('.menu-tab li').on('click', function () {
+    $('.menu-tab li').removeClass('active');
+    $(this).addClass('active');
+    $('.content-wrapper').hide();
+    $('#' + $(this).data('content')).show();
+});
+
+// 直接用 mock 数据渲染
+$(function () {
+    var data = MOCK_DATA.data;
+
+    // 解析行程
+    for (var i in data.tourItineraries) {
+        data.tourItineraries[i].sites = JSON.parse(data.tourItineraries[i].sitesString);
+    }
+    data.itineraryList = data.tourItineraries;
+
+    // 统计男女
+    data.maleCount = 0;
+    data.femaleCount = 0;
+    data.tourists.forEach(function (item) {
+        item.gender == 0 ? data.maleCount++ : data.femaleCount++;
+    });
+
+    // 渲染三个模板
+    $('#baseInfo').html(template('baseInfoTpl', data));
+    $('.flowChart-right').html(template('itineraryInfoTpl', data));
+    $('#touristList').html(template('touristListTpl', data));
+});
+</script>
+</body>
+</html>

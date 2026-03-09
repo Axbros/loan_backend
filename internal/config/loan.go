@@ -187,5 +187,6 @@ type Authorization struct {
 }
 
 type Storage struct {
-	Voucher string `yaml:"voucher" json:"voucher"`
+	Voucher             string `yaml:"voucher" json:"voucher"`
+	BaseinfoCertificate string `yaml:"baseinfoCertificate" json:"baseinfoCertificate"`
 }
